@@ -1,0 +1,234 @@
+LABORATORY 1 REPORT
+
+STUDENT: Irene Pumares
+REPO: https://github.com/irenepumaresbenaiges/AIDEOS.git (public)
+
+
+PROJECT STRUCTURE
+
+|--- ooasis-project/
+	|--- data/
+	|	|--- processed/
+	|	|	|--- final.csv
+	|	|	|--- high_temp.csv
+	|	|	|--- observations_clean.csv
+	|	|	|--- subset.csv
+	|	|	|--- tmp.csv
+	|	|--- raw/
+	|	|	|--- observations.csv
+	|--- experiments/
+	|--- reports/
+	|	|--- lab01_report.txt
+	|--- results/
+	|--- src/
+		|--- features/
+		|--- inference/
+		|--- ingestion/
+		|	|--- load_data.py
+		|--- models/
+		|--- monitoring/
+		|--- preprocessing/
+
+
+DATASET FILE LISTINGS
+
+data/raw/observations.csv = data/processed/tmp.csv: original raw dataset
+
+timestamp,object_id,temperature,velocity 
+2026-03-01T12:00:00,OBJ-001,15.3,7.4
+2026-03-01T12:05:00,OBJ-002,14.9,7.2
+2026-03-01T12:10:00,OBJ-003,15.1,7.5
+2026-03-01T12:15:00,OBJ-001,15.4,7.6
+2026-03-01T12:20:00,OBJ-004,INVALID,7.8
+
+data/processed/final.csv = data/processed/observations_clean.csv : cleaned version without invalid observations
+
+timestamp,object_id,temperature,velocity
+2026-03-01T12:00:00,OBJ-001,15.3,7.4
+2026-03-01T12:05:00,OBJ-002,14.9,7.2
+2026-03-01T12:10:00,OBJ-003,15.1,7.5
+2026-03-01T12:15:00,OBJ-001,15.4,7.6
+
+data/processed/high_temp..csv : observations with temperature > 15.2
+
+timestamp,object_id,temperature,velocity
+2026-03-01T12:00:00,OBJ-001,15.3,7.4
+2026-03-01T12:15:00,OBJ-001,15.4,7.6
+2026-03-01T12:20:00,OBJ-004,INVALID,7.8
+
+data/processed/subset.csv : dataset without velocity column
+
+timestamp,object_id,temperature
+2026-03-01T12:00:00,OBJ-001,15.3
+2026-03-01T12:05:00,OBJ-002,14.9
+2026-03-01T12:10:00,OBJ-003,15.1
+2026-03-01T12:15:00,OBJ-001,15.4
+2026-03-01T12:20:00,OBJ-004,INVALID
+
+src/ingestion/load_data.py : python script for initial data loading and basic inspection
+
+with open("data/raw/observations.csv") as f:
+	lines = f.readlines()
+print("Number of records:", len(lines)-1)
+objects = [line.split(",")[1] for line in lines[1:]]
+print("Objects:", set(objects))
+
+
+PERMISSIONS CONFIRMATION
+
+The files have been verified with the following permissions, ensuring the user has read/write access and scripts are ready for execution:
+
+Command: ls -l {file}
+Output:
+-rw-r--r-- 1 irene irene 233 Mar 19 13:40 data/raw/observations.csv
+-rw-r--r-- 1 irene irene 194 Mar 19 13:40 data/processed/final.csv
+-rw-r--r-- 1 irene irene 195 Mar 19 13:40 src/ingestion/load_data.py
+
+
+DESCRIPTION OF DATASET STRUCTURE
+
+timestamp,object_id,temperature,velocity
+2026-03-01T12:00:00,OBJ-001,15.3,7.4
+2026-03-01T12:05:00,OBJ-002,14.9,7.2
+2026-03-01T12:10:00,OBJ-003,15.1,7.5
+2026-03-01T12:15:00,OBJ-001,15.4,7.6
+2026-03-01T12:20:00,OBJ-004,INVALID,7.8
+
+The dataset consists of the following 4 columns:
+timestamp (string)
+object_id (string)
+temperatura (numeric, float) *contains "INVALID" strings in raw data
+velocity (numeric, float)
+
+
+DATA EXPLORATION
+
+PT 1
+
+Total Records:
+  Command: wc -l data/raw/observations.csv
+  Output: 5 data/raw/observations.csv
+
+Unique Object Identification (extract the second column, sort it, and remove duplicates)
+  Command: cut -d',' -f2 data/raw/observations.csv | sort | uniq
+  Output: 
+    OBJ-001
+    OBJ-002
+    OBJ-003
+    OBJ-004
+    object_id
+
+Object Frequency (counts how many times each unique identifier appears in the dataset)
+  Command: cut -d',' -f2 data/raw/observations.csv | sort | uniq -c
+  Output:
+      2 OBJ-001
+      1 OBJ-002
+      1 OBJ-003
+      1 OBJ-004
+      1 object_id
+
+PT 2
+
+Threshold Filtering (filters all records where the temperature is greater than 15.2 and save them in a new file)
+  Command: awk -F',' '$3 > 15.2' data/raw/observations.csv  > data/processed/high_temp.csv
+  Output: cat data/processed/high_temp.csv
+    timestamp,object_id,temperature,velocity
+    2026-03-01T12:00:00,OBJ-001,15.3,7.4
+    2026-03-01T12:15:00,OBJ-001,15.4,7.6
+    2026-03-01T12:20:00,OBJ-004,INVALID,7.8
+
+Invalid Records Count 
+  Command: grep -c "INVALID" data/raw/observations.csv
+  Output: 1
+
+PT 3
+
+Column Extraction (create a new dataset with only timestamp, object_id, and temperatura columns)
+  Command: cut -d',' -f1,2,3 data/raw/observations.csv > data/processed/subset.csv
+  Output: cat data/processed/subset.csv
+    timestamp,object_id,temperature
+    2026-03-01T12:00:00,OBJ-001,15.3
+    2026-03-01T12:05:00,OBJ-002,14.9
+    2026-03-01T12:10:00,OBJ-003,15.1
+    2026-03-01T12:15:00,OBJ-001,15.4
+    2026-03-01T12:20:00,OBJ-004,INVALID
+
+Modify the ingestión script to compute average temperatura and count occurrences of each object:
+
+with open("data/raw/observations.csv") as f:
+	lines = f.readlines()
+print("Number of records:", len(lines)-1)
+objects = [line.split(",")[1] for line in lines[1:]]
+print("\nObjects:", set(objects))
+object_counts = {}
+for obj in objects:
+    object_counts[obj] = object_counts.get(obj, 0) + 1
+print("\nObject Occurrences:")
+for obj, count in object_counts.items():
+    print(f" - {obj}: {count}")
+temperatures = []
+for line in lines[1:]:
+    val = line.split(",")[2]
+    if val != "INVALID":
+        temperatures.append(float(val))
+if temperatures:
+    avg_temp = sum(temperatures) / len(temperatures)
+    print(f"\nAverage Temperature: {avg_temp:.2f}ºC")
+else:
+    print("\nAverage Temperature: N/A (No valid data)")
+
+Comparison between raw (data/raw/observations.csv) and cleaned (data/processed/final.csv) datasets
+  Command: diff data/raw/observations.csv data/processed/final.csv
+  Output: 
+    6d5
+    < 2026-03-01T12:20:00,OBJ-004,INVALID,7.8
+    \ No newline at end of file
+The raw dataset contains 5 records including INVALID data, while the cleaned dataset contains 4 strictly valid records.
+
+
+DATA QUALITY & CLEANING
+
+1 A data quality issue was identified in the 'temperature' column for OBJ-004, which contains the non-numeric string "INVALID".
+ Command: grep INVALID data/raw/observations.csv
+ Output: 2026-03-01T12:20:00,OBJ-004,INVALID,7.8
+
+2 A negative search was performed to exclude lines containing "INVALID", saving the result into the 'processed' directory.
+ Command: grep -v INVALID data/raw/observations.csv > data/processed/observations_clean.csv
+
+3 Result:
+ Command: cat data/processed/observations_clean.csv
+ Output: 
+   timestamp,object_id,temperature,velocity
+   2026-03-01T12:00:00,OBJ-001,15.3,7.4
+   2026-03-01T12:05:00,OBJ-002,14.9,7.2
+   2026-03-01T12:10:00,OBJ-003,15.1,7.5
+   2026-03-01T12:15:00,OBJ-001,15.4,7.6
+
+
+DATA FLOW
+
+1 The original dataset was copied to a temporary file in the processed directory to prevent accidental modification of the source data.
+ Command: cp data/raw/observations.csv data/processed/tmp.csv
+
+2 The temporary file was cleaned by removing the invalid observation to generate the final dataset
+ Command: grep -v INVALID data/processed/tmp.csv > data/processed/final.csv
+
+
+INGESTION LAYER:
+
+The ingestion layer loads the raw observation data into the OOAIS system, organizes it, and performs basic validation (like detecting invalid records), ensuring it’s ready for the preprocessing step and the rest of the pipeline.
+
+
+SUMMARY OF PERFORMED TASKS
+
+- Created the OOAIS project structure with required subdirectories (data, src, experiments, etc.)
+- Generated a raw observation dataset with valid and invalid entries
+- Performed basic and extended data exploration using cat, head, tail, wc, cut, sort, uniq...
+- Implemented advanced filtering and data selection using awk and grep
+- Simulated a data cleaning process by removing "INVALID" records
+- Developed and modified a Python ingestion script (load_data.py) to compute average temperature and count object occurrences
+- Analyzed the data flow and the critical role of the Ingestion Layer in the OOAIS pipeline
+- Compared raw and processed datasets to verify cleaning integrity
+- Maintained all laboratory work in a version-controlled repository (GitHub)
+
+
