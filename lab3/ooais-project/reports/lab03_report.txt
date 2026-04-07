@@ -1,0 +1,209 @@
+LABORATORY 1 REPORT
+
+STUDENT: Irene Pumares
+REPO: https://github.com/irenepumaresbenaiges/AIDEOS.git (public)
+
+
+PROJECT STRUCTURE
+
+|--- ooasis-project/
+	|--- data/
+	|	|--- processed/
+	|	|	|--- final.csv
+	|	|	|--- high_temp.csv
+	|	|	|--- model_input.csv
+	|	|	|--- observations_clean.csv
+	|	|	|--- orbital_tmp.csv
+	|	|	|--- subset.csv
+	|	|	|--- tmp.csv
+	|	|--- raw/
+	|	|	|--- metadata.json
+	|	|	|--- observations.csv
+	|	|	|--- orbital_observations.csv
+	|--- experiments/
+	|--- reports/
+	|	|--- lab01_report.txt
+	|	|--- lab02_report.txt
+	|	|--- lab03_report.txt
+	|--- results/
+	|--- src/
+		|--- features/
+		|--- inference/
+		|--- ingestion/
+		|	|--- load_data.py
+		|	|--- ingest_data.py
+		|--- models/
+		|--- monitoring/
+		|--- preprocessing/
+
+
+TASK 1. Verifying Input Files
+
+Commmand: ls -l data/raw
+Output: 
+	total 40
+	-rw-r--r-- 1 irene irene   480 Apr  7 17:12 metadata.json
+	-rw-r--r-- 1 irene irene   233 Mar 19 13:39 observations.csv
+	-rw-r--r-- 1 irene irene 28739 Mar 25 16:49 orbital_observations.csv
+
+Check:
+• whether both files exist: Both files exist.
+• their size: 480 bytes (json) and 28739 bytes (csv).
+• read permissions: Both have read and write permissions.
+
+
+TASK 2. Inspecting Metadata
+
+Commmand: cat data/raw/metadata.json
+Output:
+{
+    "dataset_name": "orbital_observations",
+    "num_records": 500,
+    "columns": [
+        "timestamp",
+        "object_id",
+        "temperature",
+        "velocity",
+        "altitude",
+        "signal_strength",
+        "sensor_status",
+        "anomaly_flag"
+    ],
+    "feature_columns": [
+        "temperature",
+        "velocity",
+        "altitude",
+        "signal_strength"
+    ],
+    "target_column": "anomaly_flag",
+    "invalid_records": 30
+}
+
+Identify:
+• dataset name: "orbital_observations"
+• number of records: 500
+• list of columns: timestamp", "object_id", "temperature", "velocity", "altitude", "signal_strength", "sensor_status", "anomaly_flag"
+• feature columns: "temperature", "velocity", "altitude", "signal_strength"
+• target column: "anomaly_flag"
+• number of invalid records: 30
+
+
+TASK 3. Validating Metadata Format
+
+Command: python3 -m json.tool data/raw/metadata.json
+Output:
+{
+    "dataset_name": "orbital_observations",
+    "num_records": 500,
+    "columns": [
+        "timestamp",
+        "object_id",
+        "temperature",
+        "velocity",
+        "altitude",
+        "signal_strength",
+        "sensor_status",
+        "anomaly_flag"
+    ],
+    "feature_columns": [
+        "temperature",
+        "velocity",
+        "altitude",
+        "signal_strength"
+    ],
+    "target_column": "anomaly_flag",
+    "invalid_records": 30
+}
+
+If the command prints the formatted JSON content, the file is valid. If an error message is
+displayed, the JSON structure is incorrect and must be fixed. --> The file is valid.
+
+
+TASK 4. Implementing the Ingestion Script
+
+Step 1: Create the Script File
+
+Command: touch src/ingestion/ingest_data.py
+
+Step 2: Import Required Modules
+
+import json
+import csv
+
+Step 3: Define File Paths
+
+DATASET_PATH = "data/raw/orbital_observations.csv"
+METADATA_PATH = "data/raw/metadata.json"
+
+Step 4: Load Metadata
+
+with open(METADATA_PATH, 'r') as f:
+	metadata = json.load(f)
+
+Step 5: Load Dataset
+
+rows = []
+dataset_columns = []
+with open(DATASET_PATH, 'r') as f:
+	reader = csv.DictReader(f)
+	dataset_columns = reader.fieldnames
+	for row in reader:
+		rows.append(row)
+
+Step 6: Inspect Loaded Data
+
+print(f"Dataset name: {metadata['dataset_name']}")
+print(f"Records loaded: {len(rows)}")
+print(f"Dataset columns: {dataset_columns}")
+print(f"Metadata columns: {metadata['columns']}")
+
+
+Result
+
+  Command: python3 src/ingestion/ingest_data.py
+  Output:
+    Dataset name: orbital_observations
+    Records loaded: 500
+    Dataset columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+    Metadata columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+
+
+TASK 5. Column Consistency Validation
+
+metadata_columns = metadata["columns"]
+
+if dataset_columns == metadata_columns:
+	print("Column validation: OK")
+        column_validation_status = "OK"
+else:
+	print("Column validation: MISMATCH")
+        print(f"Expected: {metadata_columns}")
+        print(f"Actual: {dataset_columns}")
+
+Result
+
+  Command: python3 src/ingestion/ingest_data.py
+  Output:
+    Dataset name: orbital_observations
+    Records loaded: 500
+    Dataset columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+    Metadata columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+    Column validation: OK
+
+• What types of changes in the dataset could cause a mismatch?
+• Is column order always important? In which cases?
+• Should the pipeline stop if validation fails?
+
+
+¿Qué cambios causarían un desajuste? Cambiar el nombre de una columna (ej. temp por temperature), borrar una columna, o incluso cambiar el orden (en Python, las listas comparadas con == dependen del orden).
+
+¿Es importante el orden? Depende. Si usas índices numéricos para acceder a los datos, el orden es vital. Si usas diccionarios (como estamos haciendo con DictReader), es menos crítico, pero sigue siendo una buena práctica de consistencia.
+
+
+¿Debería detenerse la pipeline? ¡Sí!. Si las columnas no coinciden, cualquier paso posterior (como el entrenamiento del modelo) fallará porque no encontrará las variables que espera
+
+
+
+
+
+
