@@ -1,0 +1,479 @@
+LABORATORY 3 REPORT
+
+STUDENT: Irene Pumares
+REPO: https://github.com/irenepumaresbenaiges/AIDEOS.git (public)
+
+
+PROJECT STRUCTURE
+
+|--- ooasis-project/
+	|--- data/
+	|	|--- processed/
+	|	|	|--- final.csv
+	|	|	|--- high_temp.csv
+	|	|	|--- model_input.csv
+	|	|	|--- observations_clean.csv
+	|	|	|--- observations_invalid.csv
+	|	|	|--- observations_valid.csv
+	|	|	|--- orbital_tmp.csv
+	|	|	|--- subset.csv
+	|	|	|--- tmp.csv
+	|	|--- raw/
+	|	|	|--- metadata.json
+	|	|	|--- observations.csv
+	|	|	|--- orbital_observations.csv
+	|--- experiments/
+	|--- reports/
+	|	|--- ingestion_summary.txt
+	|	|--- lab01_report.txt
+	|	|--- lab02_report.txt
+	|	|--- lab03_report.txt
+	|--- results/
+	|--- src/
+		|--- features/
+		|--- inference/
+		|--- ingestion/
+		|	|--- ingest_data.py
+		|	|--- load_data.py
+		|--- models/
+		|--- monitoring/
+		|--- preprocessing/
+
+
+TASK 1. Verifying Input Files
+
+Commmand: ls -l data/raw/metadata.json
+Output: -rw-r--r-- 1 irene irene 480 Apr  7 17:12 data/raw/metadata.json
+Commmand: ls -l data/raw/orbital_observations.csv
+Output: -rw-r--r-- 1 irene irene 28739 Mar 25 16:49 data/raw/orbital_observations.csv
+
+Check:
+- whether both files exist: Both files exist.
+- their size: 480 bytes (json) and 28739 bytes (csv).
+- read permissions: Both have read and write permissions.
+
+
+TASK 2. Inspecting Metadata
+
+Commmand: cat data/raw/metadata.json
+Output:
+{
+    "dataset_name": "orbital_observations",
+    "num_records": 500,
+    "columns": [
+        "timestamp",
+        "object_id",
+        "temperature",
+        "velocity",
+        "altitude",
+        "signal_strength",
+        "sensor_status",
+        "anomaly_flag"
+    ],
+    "feature_columns": [
+        "temperature",
+        "velocity",
+        "altitude",
+        "signal_strength"
+    ],
+    "target_column": "anomaly_flag",
+    "invalid_records": 30
+}
+
+Identify:
+- dataset name: "orbital_observations"
+- number of records: 500
+- list of columns: timestamp", "object_id", "temperature", "velocity", "altitude", "signal_strength", "sensor_status", "anomaly_flag"
+- feature columns: "temperature", "velocity", "altitude", "signal_strength"
+- target column: "anomaly_flag"
+- number of invalid records: 30
+
+
+TASK 3. Validating Metadata Format
+
+Command: python3 -m json.tool data/raw/metadata.json
+Output:
+{
+    "dataset_name": "orbital_observations",
+    "num_records": 500,
+    "columns": [
+        "timestamp",
+        "object_id",
+        "temperature",
+        "velocity",
+        "altitude",
+        "signal_strength",
+        "sensor_status",
+        "anomaly_flag"
+    ],
+    "feature_columns": [
+        "temperature",
+        "velocity",
+        "altitude",
+        "signal_strength"
+    ],
+    "target_column": "anomaly_flag",
+    "invalid_records": 30
+}
+
+If the command prints the formatted JSON content, the file is valid. If an error message is
+displayed, the JSON structure is incorrect and must be fixed. --> The file is valid.
+
+
+TASK 4. Implementing the Ingestion Script
+
+Step 1: Create the Script File
+
+Command: touch src/ingestion/ingest_data.py
+
+Step 2: Import Required Modules
+
+import json
+import csv
+
+Step 3: Define File Paths
+
+DATASET_PATH = "data/raw/orbital_observations.csv"
+METADATA_PATH = "data/raw/metadata.json"
+
+Step 4: Load Metadata
+
+with open(METADATA_PATH, 'r') as f:
+	metadata = json.load(f)
+
+Step 5: Load Dataset
+
+rows = []
+dataset_columns = []
+with open(DATASET_PATH, 'r') as f:
+	reader = csv.DictReader(f)
+	dataset_columns = reader.fieldnames
+	for row in reader:
+		rows.append(row)
+
+Step 6: Inspect Loaded Data
+
+print(f"Dataset name: {metadata['dataset_name']}")
+print(f"Records loaded: {len(rows)}")
+print(f"Dataset columns: {dataset_columns}")
+print(f"Metadata columns: {metadata['columns']}")
+
+
+Result
+
+  Command: python3 src/ingestion/ingest_data.py
+  Output:
+    Dataset name: orbital_observations
+    Records loaded: 500
+    Dataset columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+    Metadata columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+
+
+TASK 5. Column Consistency Validation
+
+metadata_columns = metadata["columns"]
+
+if dataset_columns == metadata_columns:
+	print("Column validation: OK")
+        column_validation_status = "OK"
+else:
+	print("Column validation: MISMATCH")
+        print(f"Expected: {metadata_columns}")
+        print(f"Actual: {dataset_columns}")
+
+Result
+
+  Command: python3 src/ingestion/ingest_data.py
+  Output:
+    Dataset name: orbital_observations
+    Records loaded: 500
+    Dataset columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+    Metadata columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+    Column validation: OK
+
+- What types of changes in the dataset could cause a mismatch? Renaming, delating or adding a column would trigger a mismatch (even a small typographic change such a change in capitalization would cause the validation to fail).
+- Is column order always important? In which cases? Yes, in Python, comparing two lists with == requires the elements to be in the exact same order. Order is critical when using numerical indexing to access data.
+- Should the pipeline stop if validation fails? Yes, if the columns do not match, subsequent stages like preprocessing, feature extraction, or model training will likely encounter KeyError exceptions or produce biased and incorrect results. Stopping the pipeline early prevents the propagation of errors through the system.
+
+
+TASK 6. Record Count Validation
+
+actual_count = len(rows)
+expected_count = metadata["num_records"]
+if actual_count == expected_count:
+    print("Record count: OK")
+else:
+    print("Record count: MISMATCH")
+    print(f"Expected: {expected_count}")
+    print(f"Actual: {actual_count}")
+
+Result
+
+  Command: python3 src/ingestion/ingest_data.py
+  Output:
+    Dataset name: orbital_observations
+    Records loaded: 500
+    Dataset columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+    Metadata columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+    Column validation: OK
+    Record count: OK
+
+
+TASK 7. Detecting Invalid Records
+
+valid_records = []
+invalid_records = []
+for row in rows:
+	if row['temperature'] == 'INVALID':
+		invalid_records.append(row)
+	else:
+		valid_records.append(row)
+
+expected_invalid = metadata["invalid_records"]
+if len(invalid_records) == expected_invalid:
+	print("Invalid records count: OK")
+else:
+	print("Invalid records count: MISMATCH")
+        
+print(f"Valid records: {len(valid_records)}")
+print(f"Invalid records: {len(invalid_records)}")
+
+Result
+
+  Command: python3 src/ingestion/ingest_data.py
+  Output:
+    Dataset name: orbital_observations
+    Records loaded: 500
+    Dataset columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+    Metadata columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+    Column validation: OK
+    Record count: OK
+    Invalid records count: OK
+    Valid records: 470
+    Invalid records: 30
+
+
+TASK 8. Saving Processed Outputs
+
+import os
+    
+PROCESSED_DIR = 'data/processed/'
+valid_file_path = os.path.join(PROCESSED_DIR, 'observations_valid.csv')
+invalid_file_path = os.path.join(PROCESSED_DIR, 'observations_invalid.csv')
+    
+with open(valid_file_path, 'w', newline='') as f:
+	writer = csv.DictWriter(f, fieldnames=dataset_columns)
+	writer.writeheader()
+	writer.writerows(valid_records)
+        
+with open(invalid_file_path, 'w', newline='') as f:
+	writer = csv.DictWriter(f, fieldnames=dataset_columns)
+	writer.writeheader()
+	writer.writerows(invalid_records)
+
+After generating the files, verify that:
+- both files were created successfully
+    Command: ls -l data/processed/observations_valid.csv
+    Output: -rw-r--r-- 1 irene irene 27027 Apr  7 18:38 data/processed/observations_valid.csv
+    Command: ls -l data/processed/observations_invalid.csv
+    Output: -rw-r--r-- 1 irene irene 1806 Apr  7 18:38 data/processed/observations_invalid.csv
+- both files contain headers
+    Command: head -n 1 data/processed/observations_valid.csv
+    Output: timestamp,object_id,temperature,velocity,altitude,signal_strength,sensor_status,anomaly_flag
+    Command: head -n 1 data/processed/observations_invalid.csv
+    Output: timestamp,object_id,temperature,velocity,altitude,signal_strength,sensor_status,anomaly_flag
+- the valid file does not contain records with INVALID in the temperature column
+    Command: grep "INVALID" data/processed/observations_valid.csv
+    Output: (nothing)
+- the invalid file contains only records that were rejected during ingestion
+    Command: cat data/processed/observations_invalid.csv
+    Output:
+	timestamp,object_id,temperature,velocity,altitude,signal_strength,sensor_status,anomaly_flag
+	2026-03-01 18:50:00,OBJ-001,INVALID,7.7,598,0.81,OK,0
+	2026-03-01 19:20:00,OBJ-003,INVALID,7.65,538,0.89,OK,0
+	2026-03-01 23:30:00,OBJ-003,INVALID,7.45,451,0.73,OK,0
+	2026-03-01 23:55:00,OBJ-003,INVALID,7.35,577,0.74,OK,1
+	2026-03-02 00:50:00,OBJ-004,INVALID,7.69,444,0.95,OK,0
+	2026-03-02 01:25:00,OBJ-002,INVALID,7.92,454,0.78,OK,0
+	2026-03-02 01:55:00,OBJ-002,INVALID,7.77,555,0.95,OK,0
+	2026-03-02 02:40:00,OBJ-001,INVALID,7.93,523,0.77,OK,0
+	2026-03-02 08:55:00,OBJ-004,INVALID,7.43,518,0.87,OK,1
+	2026-03-02 09:10:00,OBJ-003,INVALID,7.71,476,0.85,OK,0
+	2026-03-02 09:35:00,OBJ-001,INVALID,7.72,457,0.89,OK,0
+	2026-03-02 10:15:00,OBJ-001,INVALID,7.68,497,0.76,OK,0
+	2026-03-02 11:10:00,OBJ-001,INVALID,7.5,430,0.6250521070116877,DEGRADED,0
+	2026-03-02 11:20:00,OBJ-003,INVALID,7.41,594,0.71,OK,0
+	2026-03-02 14:25:00,OBJ-005,INVALID,7.31,564,0.3949294676660501,DEGRADED,0
+	2026-03-02 14:30:00,OBJ-005,INVALID,7.37,595,0.87,OK,0
+	2026-03-02 16:10:00,OBJ-005,INVALID,7.96,559,0.87,OK,0
+	2026-03-02 18:30:00,OBJ-004,INVALID,7.7,483,1.0,OK,0
+	2026-03-02 18:50:00,OBJ-002,INVALID,7.01,518,0.89,OK,0
+	2026-03-02 18:55:00,OBJ-004,INVALID,7.83,509,0.89,OK,0
+	2026-03-02 21:10:00,OBJ-001,INVALID,8.0,517,0.71,OK,0
+	2026-03-02 21:15:00,OBJ-003,INVALID,7.18,526,0.92,OK,0
+	2026-03-02 22:00:00,OBJ-005,INVALID,7.04,504,0.9,OK,0
+	2026-03-03 00:50:00,OBJ-004,INVALID,7.21,441,0.93,OK,0
+	2026-03-03 01:40:00,OBJ-001,INVALID,7.09,586,0.7,OK,0
+	2026-03-03 02:00:00,OBJ-002,INVALID,7.37,418,0.76,OK,0
+	2026-03-03 03:50:00,OBJ-003,INVALID,7.54,571,0.81,OK,0
+	2026-03-03 04:25:00,OBJ-003,INVALID,7.05,514,0.9,OK,0
+	2026-03-03 04:55:00,OBJ-005,INVALID,7.69,453,0.91,OK,0
+	2026-03-03 05:35:00,OBJ-002,INVALID,7.95,498,0.95,OK,0
+
+
+TASK 9. Preparing Data for Preprocessing and Model Input
+
+model_input_path = os.path.join(PROCESSED_DIR, 'model_input.csv')
+    
+feature_cols = metadata["feature_columns"]
+model_data = []
+for record in valid_records:
+	filtered_row = {key: record[key] for key in feature_cols}
+	model_data.append(filtered_row)
+        
+with open(model_input_path, 'w', newline='') as f:
+	writer = csv.DictWriter(f, fieldnames=feature_cols)
+	writer.writeheader()
+	writer.writerows(model_data)
+
+Verify that:
+- no invalid records are present
+    Command: grep "INVALID" data/processed/model_input.csv
+    Output: (nothing)
+- only selected feature columns are included
+    Command: head -n 1 data/processed/model_input.csv
+    Output: temperature,velocity,altitude,signal_strength
+- all values are consistent with the original dataset
+    Command: head -n 3 data/processed/model_input.csv
+    Output:
+	temperature,velocity,altitude,signal_strength
+	15.77,7.06,464,0.98
+	14.94,7.28,448,0.84
+	16.29,7.03,451,0.5061892083657298
+	15.71,7.88,577,0.87
+    Command: head -n 3 data/processed/model_input.csv
+    Output:
+	timestamp,object_id,temperature,velocity,altitude,signal_strength,sensor_status,anomaly_flag
+	2026-03-01 12:00:00,OBJ-005,15.77,7.06,464,0.98,OK,0
+	2026-03-01 12:05:00,OBJ-005,14.94,7.28,448,0.84,OK,0
+	2026-03-01 12:10:00,OBJ-001,16.29,7.03,451,0.5061892083657298,DEGRADED,0
+	2026-03-01 12:15:00,OBJ-001,15.71,7.88,577,0.87,OK,0
+   It matches.		
+
+Consider the following:
+- Why should the target column not be included in model input? Because if the model has access to the "answer" during training, it will simply learn to map the input directly to that column instead of identifying patterns in the features (data leakage). This results in a model that appears perfect during training but fails completely when predicting on new, unseen data.
+- What could happen if irrelevant columns were included? It introduces noise into the system. Machine Learning models might identify false patterns where none exist. This increases the complexity of the model, slows down the training process, and typically leads to overfitting, where the model performs poorly on real-world data because it focused on irrelevant details.
+- Should feature selection always be performed in the ingestion layer, or later in the pipeline? While basic cleaning and filtering (removing obvious identifiers like IDs) happens in the ingestion layer to save memory and storage, advanced feature selection is performed in later stages use statistical methods (like correlation analysis) to decide which specific features are more useful for the model.
+
+
+TASK 10. Ingestion Summary and Data Quality Reporting
+
+REPORTS_DIR = 'reports/'
+summary_path = os.path.join(REPORTS_DIR, 'ingestion_summary.txt')
+
+column_validation_status = "OK" if dataset_columns == metadata_columns else "MISMATCH"
+record_count_status = "OK" if len(rows) == metadata["num_records"] else "MISMATCH"
+
+with open(summary_path, 'w') as f:
+	f.write(f"Dataset: {metadata['dataset_name']}\n")
+	f.write(f"Records loaded: {len(rows)}\n")
+	f.write(f"Expected records: {metadata['num_records']}\n\n")
+	f.write(f"Column validation: {column_validation_status}\n")
+	f.write(f"Record count validation: {record_count_status}\n\n")
+	f.write(f"Valid records: {len(valid_records)}\n")
+	f.write(f"Invalid records: {len(invalid_records)}\n\n")
+	f.write("Generated files:\n")
+	f.write(f"- {valid_file_path}\n")
+	f.write(f"- {invalid_file_path}\n")
+	f.write(f"- {model_input_path}\n")
+
+
+  Command: python3 src/ingestion/ingest_data.py
+  Output:
+    Dataset name: orbital_observations
+    Records loaded: 500
+    Dataset columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+    Metadata columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+    Column validation: OK
+    Record count: OK
+    Invalid records count: OK
+    Valid records: 470
+    Invalid records: 30
+    (generated file:
+	Dataset: orbital_observations
+	Records loaded: 500
+	Expected records: 500
+
+	Column validation: OK
+	Record count validation: OK
+
+	Valid records: 470
+	Invalid records: 30
+
+	Generated files:
+	- data/processed/observations_valid.csv
+	- data/processed/observations_invalid.csv
+	- data/processed/model_input.csv
+    )
+
+Verify that:
+- the file exists
+    Command: ls -l reports/ingestion_summary.txt
+    Output: -rw-r--r-- 1 irene irene 296 Apr  7 18:38 reports/ingestion_summary.txt
+- all values match your script output, the report reflects the actual pipeline behavior and no information is missing or inconsistent
+    Command: cat reports/ingestion_summary.txt
+    Output:
+	Dataset: orbital_observations
+	Records loaded: 500
+	Expected records: 500
+
+	Column validation: OK
+	Record count validation: OK
+
+	Valid records: 470
+	Invalid records: 30
+
+	Generated files:
+	- data/processed/observations_valid.csv
+	- data/processed/observations_invalid.csv
+	- data/processed/model_input.csv
+
+
+P2: Pipeline Thinking
+
+Explain:
+- why ingestion must precede preprocessing? Because it establishes the structural integrity of the data (checking columns and formats) before any transformation occurs. Without a successful ingestion, preprocessing would attempt to operate on non-existent or corrupted data structures.
+- what happens if invalid data is not removed? Numerical calculations will crash the system. Furthermore, these records introduce noise that prevents the model from learning the actual physical patterns of orbital observations.
+- how ingestion affects model quality? By filtering out corrupted records and selecting only relevant features, it ensures the model is trained on "clean" data. High-quality input leads to higher predictive accuracy and more reliable anomaly detection.
+
+
+P3: Metadata Consistency
+
+feature_cols_metadata = metadata.get("feature_columns", [])
+target_col_metadata = metadata.get("target_column", "")
+missing_features = [col for col in feature_cols_metadata if col not in dataset_columns]
+if not missing_features:
+	print("Feature validation: OK")
+else:
+	print(f"Missing feature columns: {missing_features}")
+	
+if target_col_metadata in dataset_columns:
+	print("Target validation: OK")
+else:
+	print(f"Target column missing: {target_col_metadata}")
+
+
+  Command: python3 src/ingestion/ingest_data.py
+  Output:
+    Dataset name: orbital_observations
+    Records loaded: 500
+    Dataset columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+    Metadata columns: ['timestamp', 'object_id', 'temperature', 'velocity', 'altitude', 'signal_strength', 'sensor_status', 'anomaly_flag']
+    Column validation: OK
+    Record count: OK
+    Invalid records count: OK
+    Valid records: 470
+    Invalid records: 30
+    Feature validation: OK
+    Target validation: OK
+

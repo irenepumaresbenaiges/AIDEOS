@@ -1,0 +1,519 @@
+LABORATORY 5 REPORT
+
+STUDENT: Irene Pumares
+REPO: https://github.com/irenepumaresbenaiges/AIDEOS.git (public)
+
+
+PROJECT STRUCTURE
+
+|--- ooasis-project/
+	|--- data/
+	|	|--- processed/
+	|	|	|--- final.csv
+	|	|	|--- high_temp.csv
+	|	|	|--- model_features.csv
+	|	|	|--- model_input.csv
+	|	|	|--- model_labels.csv
+	|	|	|--- observations_clean.csv
+	|	|	|--- observations_invalid.csv
+	|	|	|--- observations_valid.csv
+	|	|	|--- orbital_tmp.csv
+	|	|	|--- subset.csv
+	|	|	|--- tmp.csv
+	|	|--- raw/
+	|	|	|--- metadata.json
+	|	|	|--- observations.csv
+	|	|	|--- orbital_observations.csv
+	|--- experiments/
+	|--- reports/
+	|	|--- ingestion_summary.txt
+	|	|--- lab01_report.txt
+	|	|--- lab02_report.txt
+	|	|--- lab03_report.txt
+	|	|--- lab04_report.txt
+	|	|--- model_training_summary.txt
+	|--- results/
+		|--- model_evaluation.txt/
+	|--- src/
+		|--- features/
+		|--- inference/
+		|--- ingestion/
+		|	|--- ingest_data.py
+		|	|--- load_data.py
+		|--- models/
+		|	|--- train_model.py
+		|--- monitoring/
+		|--- preprocessing/
+			|--- prepare_ml_input.py
+
+
+TASK 1. Loading Feature Dataset
+
+Command: touch src/models/train_model.py
+
+import pandas as pd
+import os
+
+if __name__ == "__main__":
+
+    print("=== Machine Learning: Loading Feature Dataset ===")
+    
+    features_path = "data/processed/model_features.csv"
+    if not os.path.exists(features_path):
+        print(f"ERROR: The file {features_path} doesn't exist.")
+    df_features = pd.read_csv(features_path)
+    
+    print(f"Input file: {features_path}")
+    print(f"Records loaded: {len(df_features)}")
+    print(f"Columns: {list(df_features.columns)}")
+
+   Command: python3 src/models/train_model.py
+   Output:
+	=== Machine Learning: Loading Feature Dataset ===
+	Input file: data/processed/model_features.csv
+	Records loaded: 470
+	Columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction', 	'altitude_signal_ratio', 'hour_normalized']
+
+
+TASK 2: Preparing Features and Target Variable
+
+print("\n=== Machine Learning: Preparing Features and Target ===")
+
+labels_path = "data/processed/model_labels.csv"
+if not os.path.exists(labels_path):
+	print(f"ERROR: The file {labels_path} doesn't exist.")
+df_labels = pd.read_csv(labels_path)
+
+X = df_features.values.tolist()
+y = df_labels['anomaly_flag'].tolist()
+    
+print(f"Number of samples in X: {len(X)}")
+print(f"Number of labels in y: {len(y)}")
+    
+target_values = sorted(list(set(y)))
+print(f"Target values detected: {target_values}")
+
+   Command: python3 src/models/train_model.py
+   Output:
+	=== Machine Learning: Loading Feature Dataset ===
+	Input file: data/processed/model_features.csv
+	Records loaded: 470
+	Columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction', 	'altitude_signal_ratio', 'hour_normalized']
+
+	=== Machine Learning: Preparing Features and Target ===
+	Number of samples in X: 470
+	Number of labels in y: 470
+	Target values detected: [0, 1]
+
+
+TASK 3: Splitting Data into Training and Test Sets
+
+print("\n=== Machine Learning: Train/Test Split ===")
+    
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+print(f"Training samples: {len(X_train)}")
+print(f"Test samples: {len(X_test)}")
+
+   Command: python3 src/models/train_model.py
+   Output:
+	=== Machine Learning: Loading Feature Dataset ===
+	Input file: data/processed/model_features.csv
+	Records loaded: 470
+	Columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction', 	'altitude_signal_ratio', 'hour_normalized']
+
+	=== Machine Learning: Preparing Features and Target ===
+	Number of samples in X: 470
+	Number of labels in y: 470
+	Target values detected: [0, 1]
+
+	=== Machine Learning: Train/Test Split ===
+	Training samples: 376
+	Test samples: 94
+
+
+TASK 4: Training a Baseline Model
+
+print("\n=== Machine Learning: Model Training ===")
+    
+model = DecisionTreeClassifier()
+    
+model.fit(X_train, y_train)
+    
+print("Model: DecisionTreeClassifier")
+print("Training completed successfully.") 
+
+   Command: python3 src/models/train_model.py
+   Output:
+	=== Machine Learning: Loading Feature Dataset ===
+	Input file: data/processed/model_features.csv
+	Records loaded: 470
+	Columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction', 	'altitude_signal_ratio', 'hour_normalized']
+
+	=== Machine Learning: Preparing Features and Target ===
+	Number of samples in X: 470
+	Number of labels in y: 470
+	Target values detected: [0, 1]
+
+	=== Machine Learning: Train/Test Split ===
+	Training samples: 376
+	Test samples: 94
+
+	=== Machine Learning: Model Training ===
+	Model: DecisionTreeClassifier
+	Training completed successfully.
+
+
+TASK 5: Generating Predictions
+
+print("\n=== Machine Learning: Prediction ===")
+    
+    predictions = model.predict(X_test)
+    predictions = [int(p) for p in predictions]
+
+    print("Predictions generated for test set.")
+    print(f"Number of predictions: {len(predictions)}")
+    print(f"Example predictions:\n {list(predictions[:5])}")
+
+   Command: python3 src/models/train_model.py
+   Output:
+	=== Machine Learning: Loading Feature Dataset ===
+	Input file: data/processed/model_features.csv
+	Records loaded: 470
+	Columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction', 	'altitude_signal_ratio', 'hour_normalized']
+
+	=== Machine Learning: Preparing Features and Target ===
+	Number of samples in X: 470
+	Number of labels in y: 470
+	Target values detected: [0, 1]
+
+	=== Machine Learning: Train/Test Split ===
+	Training samples: 376
+	Test samples: 94
+
+	=== Machine Learning: Model Training ===
+	Model: DecisionTreeClassifier
+	Training completed successfully.
+
+	=== Machine Learning: Prediction ===
+	Predictions generated for test set.
+	Number of predictions: 94
+	Example predictions:
+ 	 [0, 1, 0, 0, 0]
+
+
+TASK 6: Model Evaluation
+
+print("\n=== Machine Learning: Evaluation ===")
+    
+accuracy = accuracy_score(y_test, predictions)
+conf_matrix = confusion_matrix(y_test, predictions)
+    
+print(f"Accuracy: {accuracy:.2f}")
+print("Confusion Matrix:")
+print(conf_matrix)
+
+   Command: python3 src/models/train_model.py
+   Output:
+	=== Machine Learning: Loading Feature Dataset ===
+	Input file: data/processed/model_features.csv
+	Records loaded: 470
+	Columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction', 	'altitude_signal_ratio', 'hour_normalized']
+
+	=== Machine Learning: Preparing Features and Target ===
+	Number of samples in X: 470
+	Number of labels in y: 470
+	Target values detected: [0, 1]
+
+	=== Machine Learning: Train/Test Split ===
+	Training samples: 376
+	Test samples: 94
+
+	=== Machine Learning: Model Training ===
+	Model: DecisionTreeClassifier
+	Training completed successfully.
+
+	=== Machine Learning: Prediction ===
+	Predictions generated for test set.
+	Number of predictions: 94
+	Example predictions:
+ 	 [0, 1, 0, 0, 0]
+
+	=== Machine Learning: Evaluation ===
+	Accuracy: 0.99
+	Confusion Matrix:
+	[[80  0]
+ 	[ 1 13]]
+
+
+TASK 7: Saving and Inspecting the Trained Model
+
+print("\n=== Machine Learning: Saving and Inspecting Model ===")
+    
+    model_path = "results/decision_tree_model.joblib"
+    joblib.dump(model, model_path)
+    print(f"Saved model: {model_path}")
+    print(f"Model type: {type(model).__name__}")
+    print(f"Tree depth: {model.get_depth()}")
+    print(f"Number of leaves: {model.get_n_leaves()}")
+    
+    feature_names = list(df_features.columns)
+    tree_rules = export_text(model, feature_names=feature_names)
+    
+    print("\nDecision Tree Rules:")
+    print(tree_rules)
+
+   Command: python3 src/models/train_model.py
+   Output:
+	=== Machine Learning: Loading Feature Dataset ===
+	Input file: data/processed/model_features.csv
+	Records loaded: 470
+	Columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction', 	'altitude_signal_ratio', 'hour_normalized']
+
+	=== Machine Learning: Preparing Features and Target ===
+	Number of samples in X: 470
+	Number of labels in y: 470
+	Target values detected: [0, 1]
+
+	=== Machine Learning: Train/Test Split ===
+	Training samples: 376
+	Test samples: 94
+
+	=== Machine Learning: Model Training ===
+	Model: DecisionTreeClassifier
+	Training completed successfully.
+
+	=== Machine Learning: Prediction ===
+	Predictions generated for test set.
+	Number of predictions: 94
+	Example predictions:
+ 	 [0, 1, 0, 0, 0]
+
+	=== Machine Learning: Evaluation ===
+	Accuracy: 0.99
+	Confusion Matrix:
+	[[80  0]
+ 	[ 1 13]]
+
+	=== Machine Learning: Saving and Inspecting Model ===
+	Saved model: results/decision_tree_model.joblib
+	Model type: DecisionTreeClassifier
+	Tree depth: 3
+	Number of leaves: 4
+
+	Decision Tree Rules:
+	|--- temperature <= 0.39
+	|   |--- temperature <= 0.37
+	|   |   |--- class: 0
+	|   |--- temperature >  0.37
+	|   |   |--- temperature <= 0.37
+	|   |   |   |--- class: 1
+	|   |   |--- temperature >  0.37
+	|   |   |   |--- class: 0
+	|--- temperature >  0.39
+	|   |--- class: 1
+
+
+TASK 8: Saving Evaluation Results
+
+print("\n=== Machine Learning: Saving Evaluation Results ===")
+    
+evaluation_path = "results/model_evaluation.txt"
+with open(evaluation_path, "w") as f:
+	f.write("OOAIS Model Evaluation\n")
+	f.write("======================\n")
+	f.write(f"Model: {type(model).__name__}\n")
+	f.write(f"Training samples: {len(X_train)}\n")
+	f.write(f"Test samples: {len(X_test)}\n")
+	f.write(f"Accuracy: {accuracy:.4f}\n")
+	f.write("Confusion Matrix:\n")
+	f.write(f"{conf_matrix}\n")
+	print(f"Saved file: {evaluation_path}")
+
+   Command: python3 src/models/train_model.py
+   Output:
+	=== Machine Learning: Loading Feature Dataset ===
+	Input file: data/processed/model_features.csv
+	Records loaded: 470
+	Columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction', 	'altitude_signal_ratio', 'hour_normalized']
+
+	=== Machine Learning: Preparing Features and Target ===
+	Number of samples in X: 470
+	Number of labels in y: 470
+	Target values detected: [0, 1]
+
+	=== Machine Learning: Train/Test Split ===
+	Training samples: 376
+	Test samples: 94
+
+	=== Machine Learning: Model Training ===
+	Model: DecisionTreeClassifier
+	Training completed successfully.
+
+	=== Machine Learning: Prediction ===
+	Predictions generated for test set.
+	Number of predictions: 94
+	Example predictions:
+ 	 [0, 1, 0, 0, 0]
+
+	=== Machine Learning: Evaluation ===
+	Accuracy: 0.99
+	Confusion Matrix:
+	[[80  0]
+ 	[ 1 13]]
+
+	=== Machine Learning: Saving and Inspecting Model ===
+	Saved model: results/decision_tree_model.joblib
+	Model type: DecisionTreeClassifier
+	Tree depth: 3
+	Number of leaves: 4
+
+	Decision Tree Rules:
+	|--- temperature <= 0.39
+	|   |--- temperature <= 0.37
+	|   |   |--- class: 0
+	|   |--- temperature >  0.37
+	|   |   |--- temperature <= 0.37
+	|   |   |   |--- class: 1
+	|   |   |--- temperature >  0.37
+	|   |   |   |--- class: 0
+	|--- temperature >  0.39
+	|   |--- class: 1
+
+	=== Machine Learning: Saving Evaluation Results ===
+	Saved file: results/model_evaluation.txt
+
+model_evaluation.txt:
+
+OOAIS Model Evaluation
+======================
+Model: DecisionTreeClassifier
+Training samples: 376
+Test samples: 94
+Accuracy: 0.9894
+Confusion Matrix:
+[[80  0]
+ [ 1 13]]
+
+
+TASK 9: Training Report
+
+print("\n=== Machine Learning: Saving Training Report ===")
+    
+report_path = "reports/model_training_summary.txt"
+with open(report_path, "w") as f:
+	f.write("OOAIS Model Training Summary\n")
+	f.write("============================\n")
+	f.write("Input datasets\n")
+	f.write("--------------\n")
+	f.write(f"{features_path}\n")
+	f.write(f"{labels_path}\n\n")
+        
+	f.write("Dataset statistics\n")
+	f.write("------------------\n")
+	f.write(f"Number of samples: {len(X)}\n")
+	f.write(f"Number of features: {len(df_features.columns)}\n\n")
+        
+	f.write("Model\n")
+	f.write("-----\n")
+	f.write(f"{type(model).__name__}\n\n")
+        
+	f.write("Train/Test split\n")
+	f.write("----------------\n")
+	f.write(f"Training samples: {len(X_train)}\n")
+	f.write(f"Test samples: {len(X_test)}\n\n")
+        
+	f.write("Evaluation summary\n")
+	f.write("------------------\n")
+	f.write(f"Accuracy: {accuracy:.4f}\n")
+	f.write("Confusion Matrix:\n")
+	f.write(f"{conf_matrix}\n")
+    
+print(f"Saved file: {report_path}")
+
+   Command: python3 src/models/train_model.py
+   Output:
+	=== Machine Learning: Loading Feature Dataset ===
+	Input file: data/processed/model_features.csv
+	Records loaded: 470
+	Columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction', 	'altitude_signal_ratio', 'hour_normalized']
+
+	=== Machine Learning: Preparing Features and Target ===
+	Number of samples in X: 470
+	Number of labels in y: 470
+	Target values detected: [0, 1]
+
+	=== Machine Learning: Train/Test Split ===
+	Training samples: 376
+	Test samples: 94
+
+	=== Machine Learning: Model Training ===
+	Model: DecisionTreeClassifier
+	Training completed successfully.
+
+	=== Machine Learning: Prediction ===
+	Predictions generated for test set.
+	Number of predictions: 94
+	Example predictions:
+ 	 [0, 1, 0, 0, 0]
+
+	=== Machine Learning: Evaluation ===
+	Accuracy: 0.99
+	Confusion Matrix:
+	[[80  0]
+ 	[ 1 13]]
+
+	=== Machine Learning: Saving and Inspecting Model ===
+	Saved model: results/decision_tree_model.joblib
+	Model type: DecisionTreeClassifier
+	Tree depth: 3
+	Number of leaves: 4
+
+	Decision Tree Rules:
+	|--- temperature <= 0.39
+	|   |--- temperature <= 0.37
+	|   |   |--- class: 0
+	|   |--- temperature >  0.37
+	|   |   |--- temperature <= 0.37
+	|   |   |   |--- class: 1
+	|   |   |--- temperature >  0.37
+	|   |   |   |--- class: 0
+	|--- temperature >  0.39
+	|   |--- class: 1
+
+	=== Machine Learning: Saving Evaluation Results ===
+	Saved file: results/model_evaluation.txt
+
+	=== Machine Learning: Saving Training Report ===
+	Saved file: reports/model_training_summary.txt
+
+model_training_summary.txt:
+
+OOAIS Model Training Summary
+============================
+Input datasets
+--------------
+data/processed/model_features.csv
+data/processed/model_labels.csv
+
+Dataset statistics
+------------------
+Number of samples: 470
+Number of features: 7
+
+Model
+-----
+DecisionTreeClassifier
+
+Train/Test split
+----------------
+Training samples: 376
+Test samples: 94
+
+Evaluation summary
+------------------
+Accuracy: 0.9894
+Confusion Matrix:
+[[80  0]
+ [ 1 13]]
+
