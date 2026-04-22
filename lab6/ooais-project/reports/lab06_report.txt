@@ -1,0 +1,1158 @@
+LABORATORY 6 REPORT
+
+STUDENT: Irene Pumares
+REPO: https://github.com/irenepumaresbenaiges/AIDEOS.git (public)
+
+
+PROJECT STRUCTURE
+
+|--- ooasis-project/
+	|--- data/
+	|	|--- processed/
+	|	|	|--- final.csv
+	|	|	|--- high_temp.csv
+	|	|	|--- model_features.csv
+	|	|	|--- model_input.csv
+	|	|	|--- model_labels.csv
+	|	|	|--- observations_clean.csv
+	|	|	|--- observations_invalid.csv
+	|	|	|--- observations_valid.csv
+	|	|	|--- orbital_tmp.csv
+	|	|	|--- subset.csv
+	|	|	|--- tmp.csv
+	|	|--- raw/
+	|	|	|--- metadata.json
+	|	|	|--- observations.csv
+	|	|	|--- orbital_observations.csv
+	|--- experiments/
+	|--- reports/
+	|	|--- ingestion_summary.txt
+	|	|--- lab01_report.txt
+	|	|--- lab02_report.txt
+	|	|--- lab03_report.txt
+	|	|--- lab04_report.txt
+	|	|--- model_comparison_panel.png
+	|	|--- model_playground_summary.txt
+	|	|--- model_training_summary.txt
+	|--- results/
+		|--- model_evaluation.txt/
+	|--- src/
+		|--- features/
+		|--- inference/
+		|--- ingestion/
+		|	|--- ingest_data.py
+		|	|--- load_data.py
+		|--- models/
+		|	|--- model_playground.py
+		|	|--- train_model.py
+		|--- monitoring/
+		|--- preprocessing/
+			|--- prepare_ml_input.py
+
+
+TASK 1. Create the Script and Verify Input Files
+
+Command: src/models/model_playground.py
+
+from pathlib import Path
+
+def validate_input_files():
+    
+    required_files = [
+        "data/processed/model_features.csv",
+        "data/processed/model_labels.csv"
+    ]
+    
+    missing_files = []
+
+    for file_path in required_files:
+        if not Path(file_path).exists():
+            missing_files.append(file_path)
+
+    if missing_files:
+        print("Error: missing required input file(s):")
+        for missing in missing_files:
+            print(f" - {missing}")
+        raise SystemExit(1)
+
+Command: python3 src/models/model_playground.py
+Output: (nothing)
+
+
+TASK 2. Loading Input Data
+
+import pandas as pd
+
+def load_data():
+    
+    features_path = "data/processed/model_features.csv"
+    labels_path = "data/processed/model_labels.csv"
+    
+    print("=== Model Playground: Loading Data ===")
+    print(f" Feature file: {features_path}")
+    print(f" Label file: {labels_path}")
+    
+    features_df = pd.read_csv(features_path)
+    labels_df = pd.read_csv(labels_path)
+    
+    return features_df, labels_df
+
+Command: python3 src/models/model_playground.py
+Output:
+  === Model Playground: Loading Data ===
+  Feature file: data/processed/model_features.csv
+  Label file: data/processed/model_labels.csv
+
+
+TASK 3. Inspecting and Validating Loaded Data
+
+def inspect_data(features_df, labels_df):
+
+    if features_df.empty:
+        print("Error: Feature dataset is empty.") 
+        raise SystemExit(1)
+        
+    if labels_df.empty:
+        print("Error: Label dataset is empty.") 
+        raise SystemExit(1)
+
+    if len(features_df) != len(labels_df):
+        print(f"Error: Row count mismatch. Features: {len(features_df)}, Labels: {len(labels_df)}") 
+        raise SystemExit(1)
+        
+    if "anomaly_flag" not in labels_df.columns: 
+        print("Error: 'anomaly_flag' column missing in labels dataset.") 
+        raise SystemExit(1)
+
+    num_samples = len(features_df)
+    num_features = features_df.shape[1]
+    feature_names = list(features_df.columns) 
+    target_values = labels_df["anomaly_flag"].unique()
+    
+    print("\n=== Model Playground: Data Inspection ===")
+    print(f"Number of samples: {num_samples}") 
+    print(f"Number of features: {num_features}")
+    print(f"Feature columns: {feature_names}") 
+    print(f"Target values detected: {target_values.tolist()}")
+
+Command: python3 src/models/model_playground.py
+Output:
+  === Model Playground: Loading Data ===
+  Feature file: data/processed/model_features.csv
+  Label file: data/processed/model_labels.csv
+
+  === Model Playground: Data Inspection ===
+  Number of samples: 470
+  Number of features: 7
+  Feature columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction',      
+  'altitude_signal_ratio', 'hour_normalized']
+  Target values detected: [0, 1]
+
+
+TASK 4. Preparing Machine Learning Inputs (X and y)
+
+def prepare_features_and_labels(features_df, labels_df):
+
+    X = features_df.values
+    y = labels_df["anomaly_flag"].astype(int).values
+    
+    print("\n=== Model Playground: Preparing Features and Labels ===") 
+    print(f"X shape: {X.shape}")
+    print(f"y shape: {y.shape}")
+    
+    return X, y
+
+Command: python3 src/models/model_playground.py
+Output:
+  === Model Playground: Loading Data ===
+  Feature file: data/processed/model_features.csv
+  Label file: data/processed/model_labels.csv
+
+  === Model Playground: Data Inspection ===
+  Number of samples: 470
+  Number of features: 7
+  Feature columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction',      
+  'altitude_signal_ratio', 'hour_normalized']
+  Target values detected: [0, 1]
+
+  === Model Playground: Preparing Features and Labels ===
+  X shape: (470, 7)
+  y shape: (470,)
+
+
+TASK 5. Splitting Data into Training and Test Sets
+
+from sklearn.model_selection import train_test_split
+
+def split_data(X, y):
+    
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, 
+        y, 
+        test_size=0.2, 
+        random_state=42
+    )
+    
+    print("\n=== Model Playground: Train/Test Split ===")
+    print(f"Training samples: {len(X_train)}")
+    print(f"Testing samples: {len(X_test)}")
+    
+    return X_train, X_test, y_train, y_test
+
+Command: python3 src/models/model_playground.py
+Output:
+  === Model Playground: Loading Data ===
+  Feature file: data/processed/model_features.csv
+  Label file: data/processed/model_labels.csv
+
+  === Model Playground: Data Inspection ===
+  Number of samples: 470
+  Number of features: 7
+  Feature columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction',      
+  'altitude_signal_ratio', 'hour_normalized']
+  Target values detected: [0, 1]
+
+  === Model Playground: Preparing Features and Labels ===
+  X shape: (470, 7)
+  y shape: (470,)
+
+  === Model Playground: Train/Test Split ===
+  Training samples: 376
+  Testing samples: 94
+
+
+TASK 6. Defining Models for Comparison
+
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+
+def define_models():
+
+    models = {
+        "Decision Tree (baseline)": DecisionTreeClassifier(random_state=42),
+        "Logistic Regression": LogisticRegression(max_iter=1000),
+        "Random Forest": RandomForestClassifier(random_state=42)
+    }
+    
+    return models
+
+Command: python3 src/models/model_playground.py
+Output:
+  === Model Playground: Loading Data ===
+  Feature file: data/processed/model_features.csv
+  Label file: data/processed/model_labels.csv
+
+  === Model Playground: Data Inspection ===
+  Number of samples: 470
+  Number of features: 7
+  Feature columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction',      
+  'altitude_signal_ratio', 'hour_normalized']
+  Target values detected: [0, 1]
+
+  === Model Playground: Preparing Features and Labels ===
+  X shape: (470, 7)
+  y shape: (470,)
+
+  === Model Playground: Train/Test Split ===
+  Training samples: 376
+  Testing samples: 94
+
+
+TASK 7. Training All Models
+
+def train_models(models, X_train, y_train):
+    
+    print("\n=== Model Playground: Training Models ===")
+    
+    trained_models = {}
+    for model_name, model in models.items():
+        model.fit(X_train, y_train)
+        trained_models[model_name] = model
+        print(f"{model_name}: trained")
+        
+    return trained_models
+
+Command: python3 src/models/model_playground.py
+Output:
+  === Model Playground: Loading Data ===
+  Feature file: data/processed/model_features.csv
+  Label file: data/processed/model_labels.csv
+
+  === Model Playground: Data Inspection ===
+  Number of samples: 470
+  Number of features: 7
+  Feature columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction',      
+  'altitude_signal_ratio', 'hour_normalized']
+  Target values detected: [0, 1]
+
+  === Model Playground: Preparing Features and Labels ===
+  X shape: (470, 7)
+  y shape: (470,)
+
+  === Model Playground: Train/Test Split ===
+  Training samples: 376
+  Testing samples: 94
+
+  === Model Playground: Training Models ===
+  Decision Tree (baseline): trained
+  Logistic Regression: trained
+  Random Forest: trained
+
+
+TASK 8. Generating Predictions
+
+def generate_predictions(trained_models, X_test):
+    
+    results = []
+    
+    for model_name, model in trained_models.items():
+        y_pred = model.predict(X_test)
+        result = {
+            "name": model_name,
+            "model": model,
+            "y_pred": y_pred
+        }
+        results.append(result)
+        
+    return results
+
+Command: python3 src/models/model_playground.py
+Output:
+  === Model Playground: Loading Data ===
+  Feature file: data/processed/model_features.csv
+  Label file: data/processed/model_labels.csv
+
+  === Model Playground: Data Inspection ===
+  Number of samples: 470
+  Number of features: 7
+  Feature columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction',      
+  'altitude_signal_ratio', 'hour_normalized']
+  Target values detected: [0, 1]
+
+  === Model Playground: Preparing Features and Labels ===
+  X shape: (470, 7)
+  y shape: (470,)
+
+  === Model Playground: Train/Test Split ===
+  Training samples: 376
+  Testing samples: 94
+
+  === Model Playground: Training Models ===
+  Decision Tree (baseline): trained
+  Logistic Regression: trained
+  Random Forest: trained
+
+
+TASK 9. Inspecting Example Predictions
+
+def print_example_predictions(prediction_results, y_test, num_examples=5):
+
+    print("\n=== Model Playground: Example Predictions ===")
+    
+    for i in range(num_examples):
+        line = f"True: {y_test[i]}"
+        for result in prediction_results:
+            model_name = result["name"]
+            y_pred = result["y_pred"]
+            line += f" | {model_name}: {y_pred[i]}"
+        print(line)
+
+Command: python3 src/models/model_playground.py
+Output:
+  === Model Playground: Loading Data ===
+  Feature file: data/processed/model_features.csv
+  Label file: data/processed/model_labels.csv
+
+  === Model Playground: Data Inspection ===
+  Number of samples: 470
+  Number of features: 7
+  Feature columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction',      
+  'altitude_signal_ratio', 'hour_normalized']
+  Target values detected: [0, 1]
+
+  === Model Playground: Preparing Features and Labels ===
+  X shape: (470, 7)
+  y shape: (470,)
+
+  === Model Playground: Train/Test Split ===
+  Training samples: 376
+  Testing samples: 94
+
+  === Model Playground: Training Models ===
+  Decision Tree (baseline): trained
+  Logistic Regression: trained
+  Random Forest: trained
+
+  === Model Playground: Example Predictions ===
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 1 | Decision Tree (baseline): 1 | Logistic Regression: 1 | Random Forest: 1
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+
+
+TASK 10. Comparing Models Using Accuracy
+
+from sklearn.metrics import accuracy_score
+
+def compute_accuracy(prediction_results, y_test):
+
+    print("\n=== Model Playground: Accuracy Comparison ===")
+    
+    for result in prediction_results:
+        y_pred = result["y_pred"]
+        accuracy = accuracy_score(y_test, y_pred)
+        result["accuracy"] = accuracy
+        print(f"{result['name']}: {accuracy:.4f}")
+        
+    return prediction_results
+
+Command: python3 src/models/model_playground.py
+Output:
+  === Model Playground: Loading Data ===
+  Feature file: data/processed/model_features.csv
+  Label file: data/processed/model_labels.csv
+
+  === Model Playground: Data Inspection ===
+  Number of samples: 470
+  Number of features: 7
+  Feature columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction',      
+  'altitude_signal_ratio', 'hour_normalized']
+  Target values detected: [0, 1]
+
+  === Model Playground: Preparing Features and Labels ===
+  X shape: (470, 7)
+  y shape: (470,)
+
+  === Model Playground: Train/Test Split ===
+  Training samples: 376
+  Testing samples: 94
+
+  === Model Playground: Training Models ===
+  Decision Tree (baseline): trained
+  Logistic Regression: trained
+  Random Forest: trained
+
+  === Model Playground: Example Predictions ===
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 1 | Decision Tree (baseline): 1 | Logistic Regression: 1 | Random Forest: 1
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+
+  === Model Playground: Accuracy Comparison ===
+  Decision Tree (baseline): 0.9894
+  Logistic Regression: 0.9574
+  Random Forest: 0.9894
+
+
+TASK 11. Computing Detailed Evaluation Metrics
+
+from sklearn.metrics import confusion_matrix, classification_report
+
+def compute_detailed_metrics(prediction_results, y_test):
+
+    print("\n=== Model Playground: Detailed Evaluation ===")
+    
+    for result in prediction_results:
+        y_pred = result["y_pred"]
+        cm = confusion_matrix(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        result["confusion_matrix"] = cm
+        result["classification_report"] = report
+        
+        print(f"\nModel: {result['name']}")
+        print(f"Accuracy: {result['accuracy']:.4f}")
+        
+        print("\nConfusion Matrix:")
+        print(cm)
+        
+        print("\nClass labels:")
+        print("0 -> normal observation")
+        print("1 -> anomaly")
+        
+        print("\nClassification Report:")
+        print("------------------------------------------------------------")
+        print(f"{'Class':<15} {'Precision':<10} {'Recall':<10} {'F1-score':<10} {'Support':<10}")
+        print("------------------------------------------------------------")
+        
+        print(
+            f"0 (normal)      "
+            f"{report['0']['precision']:.2f}       "
+            f"{report['0']['recall']:.2f}     "
+            f"{report['0']['f1-score']:.2f}      "
+            f"{int(report['0']['support'])}"
+        )
+        
+        print(
+            f"1 (anomaly)     "
+            f"{report['1']['precision']:.2f}       "
+            f"{report['1']['recall']:.2f}     "
+            f"{report['1']['f1-score']:.2f}      "
+            f"{int(report['1']['support'])}"
+        )
+        
+        print("------------------------------------------------------------")
+        
+        print(
+            f"Macro average   "
+            f"{report['macro avg']['precision']:.2f}       "
+            f"{report['macro avg']['recall']:.2f}     "
+            f"{report['macro avg']['f1-score']:.2f}      "
+            f"{int(report['macro avg']['support'])}"
+        )
+        print(
+            f"Weighted average"
+            f"{report['weighted avg']['precision']:.2f}       "
+            f"{report['weighted avg']['recall']:.2f}     "
+            f"{report['weighted avg']['f1-score']:.2f}      "
+            f"{int(report['weighted avg']['support'])}"
+        )
+        
+    return prediction_results
+
+Command: python3 src/models/model_playground.py
+Output:
+  === Model Playground: Loading Data ===
+  Feature file: data/processed/model_features.csv
+  Label file: data/processed/model_labels.csv
+
+  === Model Playground: Data Inspection ===
+  Number of samples: 470
+  Number of features: 7
+  Feature columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction',      
+  'altitude_signal_ratio', 'hour_normalized']
+  Target values detected: [0, 1]
+
+  === Model Playground: Preparing Features and Labels ===
+  X shape: (470, 7)
+  y shape: (470,)
+
+  === Model Playground: Train/Test Split ===
+  Training samples: 376
+  Testing samples: 94
+
+  === Model Playground: Training Models ===
+  Decision Tree (baseline): trained
+  Logistic Regression: trained
+  Random Forest: trained
+
+  === Model Playground: Example Predictions ===
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 1 | Decision Tree (baseline): 1 | Logistic Regression: 1 | Random Forest: 1
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+
+  === Model Playground: Accuracy Comparison ===
+  Decision Tree (baseline): 0.9894
+  Logistic Regression: 0.9574
+  Random Forest: 0.9894
+
+  === Model Playground: Detailed Evaluation ===
+
+  Model: Decision Tree (baseline)
+  Accuracy: 0.9894
+
+  Confusion Matrix:
+  [[80  0]
+   [ 1 13]]
+
+  Class labels:
+  0 -> normal observation
+  1 -> anomaly
+
+  Classification Report:
+  ------------------------------------------------------------
+  Class           Precision  Recall     F1-score   Support
+  ------------------------------------------------------------
+  0 (normal)      0.99       1.00     0.99      80
+  1 (anomaly)     1.00       0.93     0.96      14
+  ------------------------------------------------------------
+  Macro average   0.99       0.96     0.98      94
+  Weighted average0.99       0.99     0.99      94
+
+  Model: Logistic Regression
+  Accuracy: 0.9574
+
+  Confusion Matrix:
+  [[80  0]
+   [ 4 10]]
+
+  Class labels:
+  0 -> normal observation
+  1 -> anomaly
+
+  Classification Report:
+  ------------------------------------------------------------
+  Class           Precision  Recall     F1-score   Support
+  ------------------------------------------------------------
+  0 (normal)      0.95       1.00     0.98      80
+  1 (anomaly)     1.00       0.71     0.83      14
+  ------------------------------------------------------------
+  Macro average   0.98       0.86     0.90      94
+  Weighted average0.96       0.96     0.95      94
+
+  Model: Random Forest
+  Accuracy: 0.9894
+
+  Confusion Matrix:
+  [[80  0]
+   [ 1 13]]
+
+  Class labels:
+  0 -> normal observation
+  1 -> anomaly
+
+  Classification Report:
+  ------------------------------------------------------------
+  Class           Precision  Recall     F1-score   Support
+  ------------------------------------------------------------
+  0 (normal)      0.99       1.00     0.99      80
+  1 (anomaly)     1.00       0.93     0.96      14
+  ------------------------------------------------------------
+  Macro average   0.99       0.96     0.98      94
+  Weighted average0.99       0.99     0.99      94
+
+
+TASK 12. Ranking Models by Performance
+
+def rank_models(evaluation_results):
+    
+    sorted_results = sorted(
+        evaluation_results,
+        key=lambda result: result["accuracy"],
+        reverse=True
+    )
+    
+    print("\n=== Model Playground: Ranking ===")
+    for index, result in enumerate(sorted_results, start=1):
+        print(f"{index}. {result['name']} - {result['accuracy']:.4f}")
+    
+    return sorted_results
+
+Command: python3 src/models/model_playground.py
+Output:
+  === Model Playground: Loading Data ===
+  Feature file: data/processed/model_features.csv
+  Label file: data/processed/model_labels.csv
+
+  === Model Playground: Data Inspection ===
+  Number of samples: 470
+  Number of features: 7
+  Feature columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction',      
+  'altitude_signal_ratio', 'hour_normalized']
+  Target values detected: [0, 1]
+
+  === Model Playground: Preparing Features and Labels ===
+  X shape: (470, 7)
+  y shape: (470,)
+
+  === Model Playground: Train/Test Split ===
+  Training samples: 376
+  Testing samples: 94
+
+  === Model Playground: Training Models ===
+  Decision Tree (baseline): trained
+  Logistic Regression: trained
+  Random Forest: trained
+
+  === Model Playground: Example Predictions ===
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 1 | Decision Tree (baseline): 1 | Logistic Regression: 1 | Random Forest: 1
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+
+  === Model Playground: Accuracy Comparison ===
+  Decision Tree (baseline): 0.9894
+  Logistic Regression: 0.9574
+  Random Forest: 0.9894
+
+  === Model Playground: Detailed Evaluation ===
+
+  Model: Decision Tree (baseline)
+  Accuracy: 0.9894
+
+  Confusion Matrix:
+  [[80  0]
+   [ 1 13]]
+
+  Class labels:
+  0 -> normal observation
+  1 -> anomaly
+
+  Classification Report:
+  ------------------------------------------------------------
+  Class           Precision  Recall     F1-score   Support
+  ------------------------------------------------------------
+  0 (normal)      0.99       1.00     0.99      80
+  1 (anomaly)     1.00       0.93     0.96      14
+  ------------------------------------------------------------
+  Macro average   0.99       0.96     0.98      94
+  Weighted average0.99       0.99     0.99      94
+
+  Model: Logistic Regression
+  Accuracy: 0.9574
+
+  Confusion Matrix:
+  [[80  0]
+   [ 4 10]]
+
+  Class labels:
+  0 -> normal observation
+  1 -> anomaly
+
+  Classification Report:
+  ------------------------------------------------------------
+  Class           Precision  Recall     F1-score   Support
+  ------------------------------------------------------------
+  0 (normal)      0.95       1.00     0.98      80
+  1 (anomaly)     1.00       0.71     0.83      14
+  ------------------------------------------------------------
+  Macro average   0.98       0.86     0.90      94
+  Weighted average0.96       0.96     0.95      94
+
+  Model: Random Forest
+  Accuracy: 0.9894
+
+  Confusion Matrix:
+  [[80  0]
+   [ 1 13]]
+
+  Class labels:
+  0 -> normal observation
+  1 -> anomaly
+
+  Classification Report:
+  ------------------------------------------------------------
+  Class           Precision  Recall     F1-score   Support
+  ------------------------------------------------------------
+  0 (normal)      0.99       1.00     0.99      80
+  1 (anomaly)     1.00       0.93     0.96      14
+  ------------------------------------------------------------
+  Macro average   0.99       0.96     0.98      94
+  Weighted average0.99       0.99     0.99      94
+
+  === Model Playground: Ranking ===
+  1. Decision Tree (baseline) - 0.9894
+  2. Random Forest - 0.9894
+  3. Logistic Regression - 0.9574
+
+
+TASK 13. Running Controlled Experiments Using the Pipeline
+
+import matplotlib.pyplot as plt
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+
+def run_experiments(X_train, X_test, y_train, y_test):
+
+    print("\n=== Model Playground: Controlled Experiments ===")
+
+    dt_accuracies = []
+    for d in [2, 3, 5]:
+        model = DecisionTreeClassifier(max_depth=d, random_state=42)
+        model.fit(X_train, y_train)
+        acc = model.score(X_test, y_test)
+        dt_accuracies.append(acc)
+        print(f"Decision Tree (max_depth={d}): {acc:.4f}")
+
+    rf_accuracies = []
+    for n in [5, 10, 50]:
+        model = RandomForestClassifier(n_estimators=n, random_state=42)
+        model.fit(X_train, y_train)
+        acc = model.score(X_test, y_test)
+        rf_accuracies.append(acc)
+        print(f"Random Forest (n_estimators={n}): {acc:.4f}")
+
+    plt.figure(figsize=(12, 5))
+    plt.subplot(1, 2, 1)
+    plt.plot([5, 10, 50], dt_accuracies, marker='o', color='b')
+    plt.title("Decision Tree: Accuracy vs Depth")
+    plt.xlabel("Max Depth")
+    plt.ylabel("Accuracy")
+    plt.grid(True)
+    plt.subplot(1, 2, 2)
+    plt.plot([5, 10, 50], rf_accuracies, marker='s', color='r')
+    plt.title("Random Forest: Accuracy vs n_estimators")
+    plt.xlabel("Number of Trees")
+    plt.ylabel("Accuracy")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+    return {"dt_depths": dt_accuracies, "rf_estimators": rf_accuracies}
+
+Command: python3 src/models/model_playground.py
+Output:
+  === Model Playground: Loading Data ===
+  Feature file: data/processed/model_features.csv
+  Label file: data/processed/model_labels.csv
+
+  === Model Playground: Data Inspection ===
+  Number of samples: 470
+  Number of features: 7
+  Feature columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction',      
+  'altitude_signal_ratio', 'hour_normalized']
+  Target values detected: [0, 1]
+
+  === Model Playground: Preparing Features and Labels ===
+  X shape: (470, 7)
+  y shape: (470,)
+
+  === Model Playground: Train/Test Split ===
+  Training samples: 376
+  Testing samples: 94
+
+  === Model Playground: Training Models ===
+  Decision Tree (baseline): trained
+  Logistic Regression: trained
+  Random Forest: trained
+
+  === Model Playground: Example Predictions ===
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 1 | Decision Tree (baseline): 1 | Logistic Regression: 1 | Random Forest: 1
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+
+  === Model Playground: Accuracy Comparison ===
+  Decision Tree (baseline): 0.9894
+  Logistic Regression: 0.9574
+  Random Forest: 0.9894
+
+  === Model Playground: Detailed Evaluation ===
+
+  Model: Decision Tree (baseline)
+  Accuracy: 0.9894
+
+  Confusion Matrix:
+  [[80  0]
+   [ 1 13]]
+
+  Class labels:
+  0 -> normal observation
+  1 -> anomaly
+
+  Classification Report:
+  ------------------------------------------------------------
+  Class           Precision  Recall     F1-score   Support
+  ------------------------------------------------------------
+  0 (normal)      0.99       1.00     0.99      80
+  1 (anomaly)     1.00       0.93     0.96      14
+  ------------------------------------------------------------
+  Macro average   0.99       0.96     0.98      94
+  Weighted average0.99       0.99     0.99      94
+
+  Model: Logistic Regression
+  Accuracy: 0.9574
+
+  Confusion Matrix:
+  [[80  0]
+   [ 4 10]]
+
+  Class labels:
+  0 -> normal observation
+  1 -> anomaly
+
+  Classification Report:
+  ------------------------------------------------------------
+  Class           Precision  Recall     F1-score   Support
+  ------------------------------------------------------------
+  0 (normal)      0.95       1.00     0.98      80
+  1 (anomaly)     1.00       0.71     0.83      14
+  ------------------------------------------------------------
+  Macro average   0.98       0.86     0.90      94
+  Weighted average0.96       0.96     0.95      94
+
+  Model: Random Forest
+  Accuracy: 0.9894
+
+  Confusion Matrix:
+  [[80  0]
+   [ 1 13]]
+
+  Class labels:
+  0 -> normal observation
+  1 -> anomaly
+
+  Classification Report:
+  ------------------------------------------------------------
+  Class           Precision  Recall     F1-score   Support
+  ------------------------------------------------------------
+  0 (normal)      0.99       1.00     0.99      80
+  1 (anomaly)     1.00       0.93     0.96      14
+  ------------------------------------------------------------
+  Macro average   0.99       0.96     0.98      94
+  Weighted average0.99       0.99     0.99      94
+
+  === Model Playground: Ranking ===
+  1. Decision Tree (baseline) - 0.9894
+  2. Random Forest - 0.9894
+  3. Logistic Regression - 0.9574
+
+  === Model Playground: Controlled Experiments ===
+  Decision Tree (max_depth=2): 0.9894
+  Decision Tree (max_depth=3): 0.9894
+  Decision Tree (max_depth=5): 0.9894
+  Random Forest (n_estimators=5): 0.9894
+  Random Forest (n_estimators=10): 0.9894
+  Random Forest (n_estimators=50): 0.9894
+
+
+TASK 14. Saving the Experiment Summary and Creating Visualizations
+
+def save_experiment_summary(features_path, labels_path, X, X_train, X_test, ranked_models, experiment_results):
+
+    print("\n=== Model Playground: Saving Summary ===")
+
+    output_path = "reports/model_playground_summary.txt"
+    with open(output_path, "w") as f:
+        f.write("OOAIS Model Playground Summary\n")
+        f.write("================================\n\n")
+
+        f.write("Input datasets\n--------------\n")
+        f.write(f"- {features_path}\n")
+        f.write(f"- {labels_path}\n\n")
+
+        f.write("Dataset statistics\n------------------\n")
+        f.write(f"Number of samples: {X.shape[0]}\n")
+        f.write(f"Number of features: {X.shape[1]}\n")
+        f.write(f"Training samples: {len(X_train)}\n")
+        f.write(f"Testing samples: {len(X_test)}\n\n")
+
+        f.write("Compared models\n---------------\n")
+        for result in ranked_models:
+            f.write(f"- {result['name']}: {result['accuracy']:.4f}\n")
+        f.write("\n")
+
+        best_model = ranked_models[0]
+        f.write("Best model\n----------\n")
+        f.write(f"{best_model['name']} achieved the highest accuracy: {best_model['accuracy']:.4f}\n\n")
+
+        f.write("Additional experiments\n----------------------\n")
+        for d, acc in zip([2, 3, 5], experiment_results["dt_depths"]):
+            f.write(f"- Decision Tree (max_depth={d}): {acc:.4f}\n")
+            
+        for n, acc in zip([5, 10, 50], experiment_results["rf_estimators"]):
+            f.write(f"- Random Forest (n_estimators={n}): {acc:.4f}\n")
+        f.write("\n")
+
+        f.write("Conclusion\n----------\n")
+        f.write(f"The best candidate for further experiments is {best_model['name']},\n")
+        f.write("because it achieved the highest accuracy on the current test set.\n")
+
+    print(f"Saved file: {output_path}")
+
+def create_metric_plots(ranked_models):
+
+    print("\n=== Model Playground: Saving Visualizations ===")
+    
+    model_names = [result["name"] for result in ranked_models]
+    accuracies = [result["accuracy"] for result in ranked_models]
+    
+    precisions = [result["classification_report"]["1"]["precision"] for result in ranked_models]
+    recalls = [result["classification_report"]["1"]["recall"] for result in ranked_models]
+    f1_scores = [result["classification_report"]["1"]["f1-score"] for result in ranked_models]
+
+    fig, axes = plt.subplots(2, 2, figsize=(10, 8))
+
+    axes[0, 0].bar(model_names, accuracies)
+    axes[0, 0].set_title("Accuracy")
+
+    axes[0, 1].bar(model_names, precisions)
+    axes[0, 1].set_title("Precision (Anomaly)")
+
+    axes[1, 0].bar(model_names, recalls)
+    axes[1, 0].set_title("Recall (Anomaly)")
+
+    axes[1, 1].bar(model_names, f1_scores)
+    axes[1, 1].set_title("F1-score (Anomaly)")
+
+    for ax in axes.flat:
+        ax.tick_params(axis="x", rotation=15)
+        ax.set_ylabel("Score")
+
+    plt.tight_layout()
+    plt.savefig("reports/model_comparison_panel.png")
+    plt.close()
+    
+    print("Saved file: reports/model_comparison_panel.png")
+
+Command: python3 src/models/model_playground.py
+Output:
+  === Model Playground: Loading Data ===
+  Feature file: data/processed/model_features.csv
+  Label file: data/processed/model_labels.csv
+
+  === Model Playground: Data Inspection ===
+  Number of samples: 470
+  Number of features: 7
+  Feature columns: ['temperature', 'velocity', 'altitude', 'signal_strength', 'temperature_velocity_interaction',      
+  'altitude_signal_ratio', 'hour_normalized']
+  Target values detected: [0, 1]
+
+  === Model Playground: Preparing Features and Labels ===
+  X shape: (470, 7)
+  y shape: (470,)
+
+  === Model Playground: Train/Test Split ===
+  Training samples: 376
+  Testing samples: 94
+
+  === Model Playground: Training Models ===
+  Decision Tree (baseline): trained
+  Logistic Regression: trained
+  Random Forest: trained
+
+  === Model Playground: Example Predictions ===
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 1 | Decision Tree (baseline): 1 | Logistic Regression: 1 | Random Forest: 1
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+  True: 0 | Decision Tree (baseline): 0 | Logistic Regression: 0 | Random Forest: 0
+
+  === Model Playground: Accuracy Comparison ===
+  Decision Tree (baseline): 0.9894
+  Logistic Regression: 0.9574
+  Random Forest: 0.9894
+
+  === Model Playground: Detailed Evaluation ===
+
+  Model: Decision Tree (baseline)
+  Accuracy: 0.9894
+
+  Confusion Matrix:
+  [[80  0]
+   [ 1 13]]
+
+  Class labels:
+  0 -> normal observation
+  1 -> anomaly
+
+  Classification Report:
+  ------------------------------------------------------------
+  Class           Precision  Recall     F1-score   Support
+  ------------------------------------------------------------
+  0 (normal)      0.99       1.00     0.99      80
+  1 (anomaly)     1.00       0.93     0.96      14
+  ------------------------------------------------------------
+  Macro average   0.99       0.96     0.98      94
+  Weighted average0.99       0.99     0.99      94
+
+  Model: Logistic Regression
+  Accuracy: 0.9574
+
+  Confusion Matrix:
+  [[80  0]
+   [ 4 10]]
+
+  Class labels:
+  0 -> normal observation
+  1 -> anomaly
+
+  Classification Report:
+  ------------------------------------------------------------
+  Class           Precision  Recall     F1-score   Support
+  ------------------------------------------------------------
+  0 (normal)      0.95       1.00     0.98      80
+  1 (anomaly)     1.00       0.71     0.83      14
+  ------------------------------------------------------------
+  Macro average   0.98       0.86     0.90      94
+  Weighted average0.96       0.96     0.95      94
+
+  Model: Random Forest
+  Accuracy: 0.9894
+
+  Confusion Matrix:
+  [[80  0]
+   [ 1 13]]
+
+  Class labels:
+  0 -> normal observation
+  1 -> anomaly
+
+  Classification Report:
+  ------------------------------------------------------------
+  Class           Precision  Recall     F1-score   Support
+  ------------------------------------------------------------
+  0 (normal)      0.99       1.00     0.99      80
+  1 (anomaly)     1.00       0.93     0.96      14
+  ------------------------------------------------------------
+  Macro average   0.99       0.96     0.98      94
+  Weighted average0.99       0.99     0.99      94
+
+  === Model Playground: Ranking ===
+  1. Decision Tree (baseline) - 0.9894
+  2. Random Forest - 0.9894
+  3. Logistic Regression - 0.9574
+
+  === Model Playground: Controlled Experiments ===
+  Decision Tree (max_depth=2): 0.9894
+  Decision Tree (max_depth=3): 0.9894
+  Decision Tree (max_depth=5): 0.9894
+  Random Forest (n_estimators=5): 0.9894
+  Random Forest (n_estimators=10): 0.9894
+  Random Forest (n_estimators=50): 0.9894
+
+  === Model Playground: Saving Summary ===
+  Saved file: reports/model_playground_summary.txt
+
+  === Model Playground: Saving Visualizations ===
+  Saved file: reports/model_comparison_panel.png
+
+model_playground_summary.txt:
+OOAIS Model Playground Summary
+================================
+
+Input datasets
+--------------
+- data/processed/model_features.csv
+- data/processed/model_labels.csv
+
+Dataset statistics
+------------------
+Number of samples: 470
+Number of features: 7
+Training samples: 376
+Testing samples: 94
+
+Compared models
+---------------
+- Decision Tree (baseline): 0.9894
+- Random Forest: 0.9894
+- Logistic Regression: 0.9574
+
+Best model
+----------
+Decision Tree (baseline) achieved the highest accuracy: 0.9894
+
+Additional experiments
+----------------------
+- Decision Tree (max_depth=2): 0.9894
+- Decision Tree (max_depth=3): 0.9894
+- Decision Tree (max_depth=5): 0.9894
+- Random Forest (n_estimators=5): 0.9894
+- Random Forest (n_estimators=10): 0.9894
+- Random Forest (n_estimators=50): 0.9894
+
+Conclusion
+----------
+The best candidate for further experiments is Decision Tree (baseline),
+because it achieved the highest accuracy on the current test set.
+
+
+TASK 15. Interpretation and Reflection
+
+- Which model achieved the highest accuracy? Random Forest and Decision Tree.
+- Were the differences between models large or small? The difference between models are very small numerically.
+- Did the more complex model always perform better? No, the experiments showed that increasing complexity (e.g., higher max_depth or more n_estimators) did not improve performance in that cases.
+- Which model seems the most promising for further experiments? The Random Forest is the most promising. 
+- Which model appears to detect anomalies more reliably? The Decisión tree is which has the highest recall for class 1, meaning it misses very few actual anomalies (few False Negatives).
+- Why is accuracy alone not always enough? No, in imbalanced datasets, a model can achieve high accuracy by simply predicting the majority class ("Normal") every time. Accuracy fails to show if the model is actually successful at detecting the rare but critical "Anomaly" cases.
+
+
+
+

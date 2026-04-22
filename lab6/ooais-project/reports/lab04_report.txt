@@ -1,0 +1,307 @@
+LABORATORY 4 REPORT
+
+STUDENT: Irene Pumares
+REPO: https://github.com/irenepumaresbenaiges/AIDEOS.git (public)
+
+
+PROJECT STRUCTURE
+
+|--- ooasis-project/
+	|--- data/
+	|	|--- processed/
+	|	|	|--- final.csv
+	|	|	|--- high_temp.csv
+	|	|	|--- model_features.csv
+	|	|	|--- model_input.csv
+	|	|	|--- model_labels.csv
+	|	|	|--- observations_clean.csv
+	|	|	|--- observations_invalid.csv
+	|	|	|--- observations_valid.csv
+	|	|	|--- orbital_tmp.csv
+	|	|	|--- subset.csv
+	|	|	|--- tmp.csv
+	|	|--- raw/
+	|	|	|--- metadata.json
+	|	|	|--- observations.csv
+	|	|	|--- orbital_observations.csv
+	|--- experiments/
+	|--- reports/
+	|	|--- ingestion_summary.txt
+	|	|--- lab01_report.txt
+	|	|--- lab02_report.txt
+	|	|--- lab03_report.txt
+	|	|--- lab04_report.txt
+	|--- results/
+	|--- src/
+		|--- features/
+		|--- inference/
+		|--- ingestion/
+		|	|--- ingest_data.py
+		|	|--- load_data.py
+		|--- models/
+		|--- monitoring/
+		|--- preprocessing/
+			|--- prepare_ml_input.py
+
+
+TASK 1. Loading and Converting Data
+
+Command: touch src/preprocessing/prepare_ml_input.py
+
+import pandas as pd
+
+if __name__ == "__main__":
+
+	input_path = "data/processed/observations_valid.csv"
+	df = pd.read_csv(input_path)
+
+	initial_count = len(df)
+	numeric_cols = ['temperature', 'velocity', 'altitude', 'signal_strength']
+
+	for col in numeric_cols:
+		df[col] = pd.to_numeric(df[col], errors='coerce')
+
+	df = df.dropna(subset=numeric_cols)
+	df = df[df['altitude'] >= 0]
+
+	accepted_count = len(df)
+	rejected_count = initial_count - accepted_count
+
+	print("=== ML Input Preparation: Loading and Conversion ===")
+	print(f"Input file: {input_path}")
+	print(f"Records loaded: {initial_count}")
+	print(f"Records accepted: {accepted_count}")
+	print(f"Records rejected: {rejected_count}")
+
+   Command: python3 src/preprocessing/prepare_ml_input.py
+   Output:
+	=== ML Input Preparation: Loading and Conversion ===
+	Input file: data/processed/observations_valid.csv
+	Records loaded: 470
+	Records accepted: 470
+	Records rejected: 0
+
+
+TASK 2. Normalization
+
+for col in numeric_cols:
+	col_min = df[col].min()
+        col_max = df[col].max()
+        
+	if col_max > col_min:
+		df[col] = (df[col] - col_min) / (col_max - col_min)
+	else:
+		df[col] = 0.0
+
+print("\n=== ML Input Preparation: Normalization ===")
+print("Normalization completed successfully.")
+print("All selected numerical features are in range [0,1].")
+
+   Command: python3 src/preprocessing/prepare_ml_input.py
+   Output:
+	=== ML Input Preparation: Loading and Conversion ===
+	Input file: data/processed/observations_valid.csv
+	Records loaded: 470
+	Records accepted: 470
+	Records rejected: 0
+
+	=== ML Input Preparation: Normalization ===
+	Normalization completed successfully.
+	All selected numerical features are in range [0,1].
+
+
+TASK 3. Creating Derived Features
+
+df['temperature_velocity_interaction'] = df['temperature'] * df['velocity']
+df['altitude_signal_ratio'] = df['altitude'] / (df['signal_strength'] + 0.0001)
+
+print("\n=== ML Input Preparation: Derived Features ===")
+print("New features added:")
+print("- temperature_velocity_interaction")
+print("- altitude_signal_ratio")
+    
+example_row = df.iloc[0].to_dict()
+print("Example record (extended):")
+print(example_row)
+
+   Command: python3 src/preprocessing/prepare_ml_input.py
+   Output:
+	=== ML Input Preparation: Loading and Conversion ===
+	Input file: data/processed/observations_valid.csv
+	Records loaded: 470
+	Records accepted: 470
+	Records rejected: 0
+
+	=== ML Input Preparation: Normalization ===
+	Normalization completed successfully.
+	All selected numerical features are in range [0,1].
+
+	=== ML Input Preparation: Derived Features ===
+	New features added:
+	- temperature_velocity_interaction
+	- altitude_signal_ratio
+	Example record (extended):
+	{'timestamp': '2026-03-01 12:00:00', 'object_id': 'OBJ-005', 'temperature': 0.2719554891636827, 'velocity': 	0.05999999999999961, 'altitude': 0.32, 'signal_strength': 0.9739232071165108, 'sensor_status': 'OK', 	'anomaly_flag': 0, 'temperature_velocity_interaction': 0.016317329349820855, 'altitude_signal_ratio': 	0.32853426659855983}
+
+
+TASK 4. Temporal Feature Extraction
+
+df['timestamp'] = pd.to_datetime(df['timestamp'])
+df['hour_normalized'] = df['timestamp'].dt.hour / 24
+
+print("\n=== ML Input Preparation: Temporal Features ===")
+print("New feature added:")
+print("- hour_normalized")
+    
+example_row_temporal = df.iloc[0].to_dict()
+example_row_temporal['timestamp'] = example_row_temporal['timestamp'].isoformat()
+print("Example record (extended):")
+print(example_row_temporal)
+
+   Command: python3 src/preprocessing/prepare_ml_input.py
+   Output:
+	=== ML Input Preparation: Loading and Conversion ===
+	Input file: data/processed/observations_valid.csv
+	Records loaded: 470
+	Records accepted: 470
+	Records rejected: 0
+
+	=== ML Input Preparation: Normalization ===
+	Normalization completed successfully.
+	All selected numerical features are in range [0,1].
+
+	=== ML Input Preparation: Derived Features ===
+	New features added:
+	- temperature_velocity_interaction
+	- altitude_signal_ratio
+	Example record (extended):
+	{'timestamp': '2026-03-01 12:00:00', 'object_id': 'OBJ-005', 'temperature': 0.2719554891636827, 'velocity': 	0.05999999999999961, 'altitude': 0.32, 'signal_strength': 0.9739232071165108, 'sensor_status': 'OK', 	'anomaly_flag': 0, 'temperature_velocity_interaction': 0.016317329349820855, 'altitude_signal_ratio': 	0.32853426659855983}
+
+	=== ML Input Preparation: Temporal Features ===
+	New feature added:
+	- hour_normalized
+	Example record (extended):
+	{'timestamp': '2026-03-01T12:00:00', 'object_id': 'OBJ-005', 'temperature': 0.2719554891636827, 'velocity': 	0.05999999999999961, 'altitude': 0.32, 'signal_strength': 0.9739232071165108, 'sensor_status': 'OK', 	'anomaly_flag': 0, 'temperature_velocity_interaction': 0.016317329349820855, 'altitude_signal_ratio': 	0.32853426659855983, 'hour_normalized': 0.5}
+
+
+TASK 5. Selecting Final Input Features
+
+selected_columns = [
+	'temperature',
+	'velocity',
+	'altitude',
+	'signal_strength',
+	'temperature_velocity_interaction',
+	'altitude_signal_ratio',
+	'hour_normalized'
+]
+df_features = df[selected_columns].copy()
+
+print("\n=== ML Input Preparation: Feature Selection ===")
+print("Selected features:")
+for col in selected_columns:
+	print(f"- {col}")
+    
+print("Example record (final):")
+print(df_features.iloc[0].to_dict())
+
+   Command: python3 src/preprocessing/prepare_ml_input.py
+   Output:
+	=== ML Input Preparation: Loading and Conversion ===
+	Input file: data/processed/observations_valid.csv
+	Records loaded: 470
+	Records accepted: 470
+	Records rejected: 0
+
+	=== ML Input Preparation: Normalization ===
+	Normalization completed successfully.
+	All selected numerical features are in range [0,1].
+
+	=== ML Input Preparation: Derived Features ===
+	New features added:
+	- temperature_velocity_interaction
+	- altitude_signal_ratio
+	Example record (extended):
+	{'timestamp': '2026-03-01 12:00:00', 'object_id': 'OBJ-005', 'temperature': 0.2719554891636827, 'velocity': 	0.05999999999999961, 'altitude': 0.32, 'signal_strength': 0.9739232071165108, 'sensor_status': 'OK', 	'anomaly_flag': 0, 'temperature_velocity_interaction': 0.016317329349820855, 'altitude_signal_ratio': 	0.32853426659855983}
+
+	=== ML Input Preparation: Temporal Features ===
+	New feature added:
+	- hour_normalized
+	Example record (extended):
+	{'timestamp': '2026-03-01T12:00:00', 'object_id': 'OBJ-005', 'temperature': 0.2719554891636827, 'velocity': 	0.05999999999999961, 'altitude': 0.32, 'signal_strength': 0.9739232071165108, 'sensor_status': 'OK', 	'anomaly_flag': 0, 'temperature_velocity_interaction': 0.016317329349820855, 'altitude_signal_ratio': 	0.32853426659855983, 'hour_normalized': 0.5}
+
+	=== ML Input Preparation: Feature Selection ===
+	Selected features:
+	- temperature
+	- velocity
+	- altitude
+	- signal_strength
+	- temperature_velocity_interaction
+	- altitude_signal_ratio
+	- hour_normalized
+	Example record (final):
+	{'temperature': 0.2719554891636827, 'velocity': 0.05999999999999961, 'altitude': 0.32, 'signal_strength': 	0.9739232071165108, 'temperature_velocity_interaction': 0.016317329349820855, 'altitude_signal_ratio': 	0.32853426659855983, 'hour_normalized': 0.5}
+
+
+TASK 6. Preparing Target Labels and Saving Final Outputs
+
+df_labels = df[['anomaly_flag']].copy()
+
+features = "data/processed/model_features.csv"
+labels = "data/processed/model_labels.csv"
+df_features.to_csv(features, index=False)
+df_labels.to_csv(labels, index=False)
+
+print("\n=== ML Input Preparation: Saving Outputs ===")
+print(f"Saved file: {features}")
+print(f"Saved file: {labels}")
+print(f"Number of records: {len(df_features)}")
+print(f"Number of features: {len(df_features.columns)}")
+    
+print("Example label record:")
+print(df_labels.iloc[0].to_dict())
+
+   Command: python3 src/preprocessing/prepare_ml_input.py
+   Output:
+	=== ML Input Preparation: Loading and Conversion ===
+	Input file: data/processed/observations_valid.csv
+	Records loaded: 470
+	Records accepted: 470
+	Records rejected: 0
+
+	=== ML Input Preparation: Normalization ===
+	Normalization completed successfully.
+	All selected numerical features are in range [0,1].
+
+	=== ML Input Preparation: Derived Features ===
+	New features added:
+	- temperature_velocity_interaction
+	- altitude_signal_ratio
+	Example record (extended):
+	{'timestamp': '2026-03-01 12:00:00', 'object_id': 'OBJ-005', 'temperature': 0.2719554891636827, 'velocity': 	0.05999999999999961, 'altitude': 0.32, 'signal_strength': 0.9739232071165108, 'sensor_status': 'OK', 	'anomaly_flag': 0, 'temperature_velocity_interaction': 0.016317329349820855, 'altitude_signal_ratio': 	0.32853426659855983}
+
+	=== ML Input Preparation: Temporal Features ===
+	New feature added:
+	- hour_normalized
+	Example record (extended):
+	{'timestamp': '2026-03-01T12:00:00', 'object_id': 'OBJ-005', 'temperature': 0.2719554891636827, 'velocity': 	0.05999999999999961, 'altitude': 0.32, 'signal_strength': 0.9739232071165108, 'sensor_status': 'OK', 	'anomaly_flag': 0, 'temperature_velocity_interaction': 0.016317329349820855, 'altitude_signal_ratio': 	0.32853426659855983, 'hour_normalized': 0.5}
+
+	=== ML Input Preparation: Feature Selection ===
+	Selected features:
+	- temperature
+	- velocity
+	- altitude
+	- signal_strength
+	- temperature_velocity_interaction
+	- altitude_signal_ratio
+	- hour_normalized
+	Example record (final):
+	{'temperature': 0.2719554891636827, 'velocity': 0.05999999999999961, 'altitude': 0.32, 'signal_strength': 	0.9739232071165108, 'temperature_velocity_interaction': 0.016317329349820855, 'altitude_signal_ratio': 	0.32853426659855983, 'hour_normalized': 0.5}
+
+	=== ML Input Preparation: Saving Outputs ===
+	Saved file: data/processed/model_features.csv
+	Saved file: data/processed/model_labels.csv
+	Number of records: 470
+	Number of features: 7
+	Example label record:
+	{'anomaly_flag': 0}
