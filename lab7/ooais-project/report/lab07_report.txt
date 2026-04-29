@@ -1,0 +1,569 @@
+LABORATORY 7 REPORT
+
+STUDENT: Irene Pumares
+REPO: https://github.com/irenepumaresbenaiges/AIDEOS.git (public)
+
+
+PROJECT STRUCTURE
+
+|--- ooasis-project/
+	|--- data/
+	|	|--- inference_samples/
+	|	|	|--- noise.jpg
+	|	|--- processed/
+	|	|	|--- images/
+	|	|		|--- test/
+	|	|		|	|--- forest/
+	|	|		|	|	|--- forest_****.jpg
+	|	|		|	|--- residential/
+	|	|		|	|	|--- residential_****.jpg
+	|	|		|	|--- river/
+	|	|		|		|--- river_****.jpg
+	|	|		|--- train/
+	|	|			|--- forest/
+	|	|			|	|--- forest_****.jpg
+	|	|			|--- residential/
+	|	|			|	|--- residential_****.jpg
+	|	|			|--- river/
+	|	|				|--- river_****.jpg
+	|	|--- raw/
+	|		|--- eurosat/
+	|			|--- ...
+	|--- models/
+		|--- comparison_plot.png
+		|--- image_model.joblib
+		|--- knn.joblib
+		|--- logistic_regression.joblib
+		|--- random_forest.joblib
+		|--- svm.joblib
+	|--- report/
+	|	|--- lab07_report.txt
+	|--- src/
+		|--- data/
+		|	|--- create_noise_image.py
+		|	|--- download_eurosat.py
+		|	|--- prepare_image_dataset.py
+		|--- vision/
+			|--- feature_extractor.py
+			|--- predict_all_models.py
+			|--- predict_image.py
+			|--- train_image_model.py
+
+
+TASK 1. Download Dataset
+
+Command: touch src/data/download_eurosat.py
+
+from pathlib import Path
+from torchvision.datasets import EuroSAT
+
+RAW_DATA_DIR = Path("data/raw")
+
+def main():
+    RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    dataset = EuroSAT(root=str(RAW_DATA_DIR), download=True)
+    print(f"Downloaded dataset with {len(dataset)} images")
+    print(f"Classes: {dataset.classes}")
+    
+if __name__ == "__main__":
+    main()
+
+Command: python3 src/data/download_eurosat.py
+Output:
+	100.0%
+	Downloaded dataset with 27000 images
+	Classes: ['AnnualCrop', 'Forest', 'HerbaceousVegetation', 'Highway', 'Industrial', 'Pasture', 'PermanentCrop', 	'Residential', 'River', 'SeaLake']
+
+TASK 2. Prepare Dataset
+
+Command: touch src/data/prepare_image_dataset.py
+
+from pathlib import Path
+from PIL import Image
+import random
+import shutil
+
+RAW_ROOT = Path("data/raw")
+PROCESSED_ROOT = Path("data/processed/images")
+SELECTED_CLASSES = {
+    "Forest": "forest",
+    "River": "river",
+    "Residential": "residential"
+}
+IMAGES_PER_CLASS = 60
+TRAIN_RATIO = 0.8
+TARGET_SIZE = (64, 64)
+RANDOM_SEED = 42
+SUPPORTED_EXTENSIONS = [".jpg", ".jpeg", ".png"]
+
+def find_eurosat_folder(raw_root):
+    for path in raw_root.rglob("*"):
+        if path.is_dir():
+            class_names = [
+                child.name for child in path.iterdir()
+                if child.is_dir()
+            ]
+            if all(class_name in class_names for class_name in SELECTED_CLASSES.keys()):
+                return path
+    print("Error: Could not find EuroSAT class folders.")
+    print("Make sure you ran src/data/download_eurosat.py first.")
+    raise SystemExit(1)
+
+
+def prepare_output_directories():
+    if PROCESSED_ROOT.exists():
+        shutil.rmtree(PROCESSED_ROOT)
+
+    for split_name in ["train", "test"]:
+        for output_class in SELECTED_CLASSES.values():
+            output_dir = PROCESSED_ROOT / split_name / output_class
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+
+def process_single_image(input_path, output_path):
+    with Image.open(input_path) as image:
+        image = image.convert("RGB")
+        image = image.resize(TARGET_SIZE)
+        image.save(output_path)
+
+
+def prepare_dataset():
+    random.seed(RANDOM_SEED)
+    eurosat_folder = find_eurosat_folder(RAW_ROOT)
+
+    prepare_output_directories()
+
+    print("=== Preparing Image Dataset ===")
+    print(f"EuroSAT folder: {eurosat_folder}")
+    print(f"Processed dataset: {PROCESSED_ROOT}")
+
+    for original_class, output_class in SELECTED_CLASSES.items():
+        class_dir = eurosat_folder / original_class
+        image_files = [
+            path for path in class_dir.iterdir()
+            if path.suffix.lower() in SUPPORTED_EXTENSIONS
+        ]
+
+        random.shuffle(image_files)
+        selected_files = image_files[:IMAGES_PER_CLASS]
+
+        split_index = int(TRAIN_RATIO * len(selected_files))
+
+        train_files = selected_files[:split_index]
+        test_files = selected_files[split_index:]
+
+        print(f"\nClass: {original_class}")
+        print(f"Selected images: {len(selected_files)}")
+        print(f"Training images: {len(train_files)}")
+        print(f"Testing images: {len(test_files)}")
+
+        for split_name, files in [("train", train_files), ("test", test_files)]:
+            for index, input_path in enumerate(files):
+                output_filename = f"{output_class}_{index:04d}.jpg"
+                output_path = (
+                    PROCESSED_ROOT
+                    / split_name
+                    / output_class
+                    / output_filename
+                )
+
+                process_single_image(input_path, output_path)
+
+def main():
+    prepare_dataset()
+
+if __name__ == "__main__":
+    main()
+
+Command: python3 src/data/prepare_image_dataset.py
+Output:
+	=== Preparing Image Dataset ===
+	EuroSAT folder: data/raw/eurosat/2750
+	Processed dataset: data/processed/images
+
+	Class: Forest
+	Selected images: 60
+	Training images: 48
+	Testing images: 12
+
+	Class: River
+	Selected images: 60
+	Training images: 48
+	Testing images: 12
+
+	Class: Residential
+	Selected images: 60
+	Training images: 48
+	Testing images: 12
+
+
+TASK 3. Feature Extraction
+
+Command: touch src/vision/feature_extractor.py
+
+import numpy as np
+
+def extract_features(image):
+    image = image.convert("RGB")
+    image = image.resize((64, 64))
+    array = np.array(image) / 255.0
+    return array.flatten()
+
+
+TASK 4. Load Image Data
+
+Command: touch src/vision/train_image_model.py
+
+from pathlib import Path
+from PIL import Image
+import numpy as np
+from src.vision.feature_extractor import extract_features
+
+DATASET_DIR = Path("data/processed/images")
+
+def load_image_split(split_dir):
+    X = []
+    y = []
+    
+    class_dirs = sorted([
+        path for path in split_dir.iterdir()
+        if path.is_dir()
+    ])
+    
+    for class_dir in class_dirs:
+        class_name = class_dir.name
+        
+        image_files = sorted([
+            path for path in class_dir.iterdir()
+            if path.suffix.lower() in [".jpg", ".jpeg", ".png"]
+        ])
+        
+        for image_path in image_files:
+            with Image.open(image_path) as image:
+                features = extract_features(image)
+                X.append(features)
+                y.append(class_name)
+
+    X = np.array(X)
+    y = np.array(y)
+    return X, y
+
+
+def load_training_and_test_data():
+    train_dir = DATASET_DIR / "train"
+    test_dir = DATASET_DIR / "test"
+    
+    X_train, y_train = load_image_split(train_dir)
+    X_test, y_test = load_image_split(test_dir)
+    
+    print("=== Image ML Dataset ===")
+    print(f"X_train shape: {X_train.shape}")
+    print(f"y_train shape: {y_train.shape}")
+    print(f"X_test shape: {X_test.shape}")
+    print(f"y_test shape: {y_test.shape}")
+    
+    return X_train, X_test, y_train, y_test
+
+
+def main():
+    X_train, X_test, y_train, y_test = load_training_and_test_data()
+
+if __name__ == "__main__":
+    main()
+
+Command: python3 -m src.vision.train_image_model
+Output:
+	=== Image ML Dataset ===
+	X_train shape: (144, 12288)
+	y_train shape: (144,)
+	X_test shape: (36, 12288)
+	y_test shape: (36,)
+ 
+
+TASK 5. Train Model
+
+from sklearn.ensemble import RandomForestClassifier
+
+def train_model(X_train, y_train):
+    print("=== Training Image Classifier ===")
+    print(f"Training samples: {len(X_train)}")
+    print(f"Number of features per image: {X_train.shape[1]}")
+
+    model = RandomForestClassifier(
+        n_estimators=100,
+        random_state=42
+    )
+
+    model.fit(X_train, y_train)
+
+    print("Model trained.")
+
+    return model
+
+def main():
+    X_train, X_test, y_train, y_test = load_training_and_test_data()
+    model = train_model(X_train, y_train)
+
+if __name__ == "__main__":
+    main()
+
+Command: python3 -m src.vision.train_image_model
+Output:
+	=== Image ML Dataset ===
+	X_train shape: (144, 12288)
+	y_train shape: (144,)
+	X_test shape: (36, 12288)
+	y_test shape: (36,)
+	=== Training Image Classifier ===
+	Training samples: 144
+	Number of features per image: 12288
+	Model trained.
+
+
+TASK 6.  Evaluate Model
+
+from sklearn.metrics import accuracy_score
+
+def evaluate_model(model, X_test, y_test):
+    print("=== Model Evaluation ===")
+
+    y_pred = model.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
+
+    print(f"Number of test samples: {len(X_test)}")
+    print(f"Accuracy: {accuracy:.4f}")
+
+    return accuracy
+
+def main():
+    X_train, X_test, y_train, y_test = load_training_and_test_data()
+    model = train_model(X_train, y_train)
+    evaluate_model(model, X_test, y_test)
+
+if __name__ == "__main__":
+    main()
+
+Command: python3 -m src.vision.train_image_model
+Output:
+	=== Image ML Dataset ===
+	X_train shape: (144, 12288)
+	y_train shape: (144,)
+	X_test shape: (36, 12288)
+	y_test shape: (36,)
+	=== Training Image Classifier ===
+	Training samples: 144
+	Number of features per image: 12288
+	Model trained.
+	=== Model Evaluation ===
+	Number of test samples: 36
+	Accuracy: 0.8611
+
+
+TASK 7.  Save Model
+
+import joblib
+
+MODEL_PATH = Path("models/image_model.joblib")
+
+def save_model(model):
+    MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    joblib.dump(model, MODEL_PATH)
+
+    print("=== Saving Model ===")
+    print(f"Saved model: {MODEL_PATH}")
+
+
+def main():
+    X_train, X_test, y_train, y_test = load_training_and_test_data()
+    model = train_model(X_train, y_train)
+    evaluate_model(model, X_test, y_test)
+    save_model(model)
+
+if __name__ == "__main__":
+    main()
+
+Command: python3 -m src.vision.train_image_model
+Output:
+	=== Image ML Dataset ===
+	X_train shape: (144, 12288)
+	y_train shape: (144,)
+	X_test shape: (36, 12288)
+	y_test shape: (36,)
+	=== Training Image Classifier ===
+	Training samples: 144
+	Number of features per image: 12288
+	Model trained.
+	=== Model Evaluation ===
+	Number of test samples: 36
+	Accuracy: 0.8611
+	=== Saving Model ===
+	Saved model: models/image_model.joblib
+
+
+TASK 8. Predict Single Image
+
+Command: touch src/vision/predict_image.py
+
+from pathlib import Path
+from PIL import Image
+import joblib
+from src.vision.feature_extractor import extract_features
+
+MODEL_PATH = Path("models/image_model.joblib")
+
+def load_model():
+    if not MODEL_PATH.exists():
+        print(f"Error: model file not found: {MODEL_PATH}")
+        raise SystemExit(1)
+    
+    model = joblib.load(MODEL_PATH)
+    print("Model loaded.")
+    return model
+
+
+def predict_image(model, image_path):
+    path = Path(image_path)
+    if not path.exists():
+        print(f"Error: file not found: {image_path}")
+        return
+    
+    with Image.open(path) as image:
+        features = extract_features(image)
+    
+    prediction = model.predict([features])[0]
+
+    print("=== Prediction ===")
+    print(f"Image: {image_path}")
+    print(f"Predicted class: {prediction}")
+
+
+def main():
+    model = load_model()
+    image_path = "data/processed/images/test/forest/forest_0000.jpg"
+    predict_image(model, image_path)
+
+if __name__ == "__main__":
+    main()
+
+Command: python3 -m src.vision.predict_image
+Output:
+	Model loaded.
+	=== Prediction ===
+	Image: data/processed/images/test/forest/forest_0000.jpg
+	Predicted class: forest
+
+
+TASK 9. Visualize Prediction
+
+import matplotlib.pyplot as plt
+
+def predict_image(model, image_path):
+    path = Path(image_path)
+    
+    if not path.exists():
+        print(f"Error: file not found: {image_path}")
+        return
+    
+    with Image.open(path) as image:
+        features = extract_features(image)
+        image_for_plot = image.copy()
+
+    prediction = model.predict([features])[0]
+
+    print("=== Prediction ===")
+    print(f"Image: {image_path}")
+    print(f"Predicted class: {prediction}")
+
+    plt.imshow(image_for_plot)
+    plt.title(f"Prediction: {prediction}")
+    plt.axis("off")
+    plt.show()
+
+Command: python3 -m src.vision.predict_image
+Output:
+	Model loaded.
+	=== Prediction ===
+	Image: data/processed/images/test/forest/forest_0000.jpg
+	Predicted class: forest
+
+
+TASK 10. Additional Experiments and Limitations
+
+Experiment 1: Image from an Unknown EuroSAT Class
+
+Image: data/raw/eurosat/2750/Highway/Highway_1.jpg
+Predicted class: residential
+Among the three categories it was trained on, residential is the one that seems to be the most similar with highway class.
+
+
+Experiment 2: Noise Image
+
+Command: touch src/data/create_noise_image.py
+
+from pathlib import Path
+import numpy as np
+from PIL import Image
+
+output_path = Path("data/inference_samples/noise.jpg")
+output_path.parent.mkdir(parents=True, exist_ok=True)
+
+array = np.random.randint(0, 256, size=(64, 64, 3), dtype=np.uint8)
+image = Image.fromarray(array)
+
+image.save(output_path)
+
+print(f"Saved noise image: {output_path}")
+
+Image: data/inference_samples/noise.jpg
+Predicted class: residential
+Even though the noise image contains no semantic information or recognizable patterns, the model still assigned it to the residential. This happens because the model lacks an unknown option.
+
+
+TASK 11. Compare Multiple Models
+
+Command: python3 -m src.vision.train_image_model
+Output:
+	=== Image ML Dataset ===
+	X_train shape: (144, 12288)
+	y_train shape: (144,)
+	X_test shape: (36, 12288)
+	y_test shape: (36,)
+
+	=== Training and Evaluating Models ===
+	Model: Random Forest
+  		Accuracy: 0.8611
+  		Training time: 0.5074 s
+	Model: KNN
+  		Accuracy: 0.6944
+  		Training time: 0.0026 s
+	Model: Logistic Regression
+  		Accuracy: 0.7778
+  		Training time: 97.1618 s
+	Model: SVM
+  		Accuracy: 0.8056
+  		Training time: 127.3847 s
+
+	Plot saved as models/comparison_plot.png
+
+Command: python3 -m src.vision.predict_all_models
+Output:
+	Image: data/processed/images/test/forest/forest_0000.jpg
+	Random Forest: forest
+	KNN: forest
+	Logistic Regression: forest
+	SVM: forest
+
+
+QUESTIONS:
+
+– How is an image converted into numbers? Each pixel is treated as a data point. As each pixel has three color channels, the image s tranformed into a 3D matrix, the matrix is flattened into a 1D vector of 12288 values (64x64x3).
+– What does the model actually “see”? The model sees a long sequence of numbers (the feature vector) and looks for statistical patterns, such as specific numerical ranges or correlations between pixels intesities, to distinguish one class from another.
+– Why can the model classify random or unknown images as one of the known classes? Because the models we used are mathematically forced to map any input vector into one of the predefined decision regions (Forest, River, or Residential). They don't have an "Unknown" category; they simply calculate which known class the input is most statistically similar to, even if that similarity is very low.
+– Why can this behavior be dangerous in real AI systems? In real-world applications, such as autonomous satellite monitoring or navigation, this behavior can lead to allucinations. For example, if a model identifies a cloud or a sensor error as a "Residential" area, it could trigger incorrect automated responses. That'x why is very important to have a confidence threshold or an outlier detection mechanism.
+– What would need to be improved before using such a system operationally? First, training with more data, also using a better architecture like a CNN that can recongnize spatial patterns rather than just pixel values. Also implementing a mechanism to flag images that don't belong to any known class, and accpting a classification if the model is, for example, more than 90% sure.
+– Which model achieved the highest accuracy? Random Forest.
+– Which model was fastest to train? KNN.
+– Did the fastest model also achieve the best accuracy? No. While KNN was the fastest, it had the lowest accuracy. There isa clear trade-off between the simplicity of the model and its predictive power.
+– Did all models classify the same image in the same way? Yes.
+– What does the accuracy vs training time plot show? The plot visualizes the efficiency of the algorithms. It shows that while models like Logistic Regression and SVM take significantly more time to process the data, they don't always provide a better result than Random Forest, which in this specific case was both fast and accurate.
