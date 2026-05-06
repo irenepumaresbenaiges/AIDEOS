@@ -1,0 +1,818 @@
+LABORATORY 8 REPORT
+
+STUDENT: Irene Pumares
+REPO: https://github.com/irenepumaresbenaiges/AIDEOS.git (public)
+
+
+PROJECT STRUCTURE
+
+|--- ooasis-project/
+	|--- data/
+	|	|--- inference_samples/
+	|	|	|--- noise.jpg
+	|	|--- processed/
+	|	|	|--- images/
+	|	|		|--- test/
+	|	|		|	|--- forest/
+	|	|		|	|	|--- forest_****.jpg
+	|	|		|	|--- residential/
+	|	|		|	|	|--- residential_****.jpg
+	|	|		|	|--- river/
+	|	|		|		|--- river_****.jpg
+	|	|		|--- train/
+	|	|			|--- forest/
+	|	|			|	|--- forest_****.jpg
+	|	|			|--- residential/
+	|	|			|	|--- residential_****.jpg
+	|	|			|--- river/
+	|	|				|--- river_****.jpg
+	|	|--- raw/
+	|		|--- eurosat/
+	|			|--- ...
+	|--- models/
+	|	|--- cnn_classes.txt
+	|	|--- cnn_model.pt
+	|	|--- comparison_plot.png
+	|	|--- image_model.joblib
+	|	|--- knn.joblib
+	|	|--- logistic_regression.joblib
+	|	|--- random_forest.joblib
+	|	|--- svm.joblib
+	|--- report/
+	|	|--- cnn_vs_ml.txt
+	|	|--- confusion_matrix.png
+	|	|--- lab07_report.txt
+	|	|--- lab08_report.txt
+	|--- src/
+		|--- data/
+		|	|--- create_noise_image.py
+		|	|--- download_eurosat.py
+		|	|--- prepare_image_dataset.py
+		|--- vision/
+			|--- cnn_model.py
+			|--- feature_extractor.py
+			|--- image_dataset.py
+			|--- predict_all_models.py
+			|--- predict_cnn.py
+			|--- predict_image.py
+			|--- train_cnn.py
+			|--- train_image_model.py
+
+
+TASK 3. Create PyTorch Dataset
+
+Command: touch src/vision/image_dataset.py
+
+from pathlib import Path
+from PIL import Image
+from torch.utils.data import Dataset
+from torchvision import transforms
+
+class EuroSATDataset(Dataset):
+    def __init__(self, root_dir, transform=None):
+        self.root_dir = Path(root_dir)
+        self.transform = transform
+
+        if not self.root_dir.exists():
+            print(f"Error: dataset directory does not exist: {self.root_dir}")
+            print("Run src/data/download_eurosat.py first.")
+            print("Then run src/data/prepare_image_dataset.py.")
+            raise SystemExit(1)
+        
+        self.samples = []
+        self.class_names = sorted([
+            path.name
+            for path in self.root_dir.iterdir()
+            if path.is_dir()
+        ])
+
+        self.class_to_index = {
+            class_name: index
+            for index, class_name
+            in enumerate(self.class_names)
+        }
+
+        for class_name in self.class_names:
+
+            class_dir = self.root_dir / class_name
+
+            image_files = sorted([
+                path for path in class_dir.iterdir()
+                if path.suffix.lower()
+                in [".jpg", ".jpeg", ".png"]
+            ])
+
+            for image_path in image_files:
+                label = self.class_to_index[class_name]
+                self.samples.append(
+                (image_path, label)
+                )
+
+    def __len__(self):
+        return len(self.samples)
+    
+    def __getitem__(self, index):
+
+        image_path, label = self.samples[index]
+        
+        with Image.open(image_path) as image:
+            image = image.convert("RGB")
+            
+            if self.transform is not None:
+                image = self.transform(image)
+
+        return image, label
+
+
+def main():
+    transform = transforms.ToTensor()
+    dataset = EuroSATDataset(
+        root_dir="data/processed/images/train",
+        transform=transform
+    )
+    print("=== PyTorch Dataset Inspection ===")
+    print(f"Classes: {dataset.class_names}")
+    print(f"Class mapping: {dataset.class_to_index}")
+    print(f"Number of samples: {len(dataset)}")
+    image_tensor, label = dataset[0]
+    print(f"First image tensor shape: {image_tensor.shape}")
+    print(f"First label: {label}")
+
+if __name__ == "__main__":
+    main()
+
+Command: python3 src/vision/image_dataset.py
+Output: 
+	=== PyTorch Dataset Inspection ===
+	Classes: ['forest', 'residential', 'river']
+	Class mapping: {'forest': 0, 'residential': 1, 'river': 2}
+	Number of samples: 144
+	First image tensor shape: torch.Size([3, 64, 64])
+	First label: 0
+
+
+TASK 4. Create DataLoaders
+
+Command: touch src/vision/train_cnn.py
+
+from pathlib import Path
+import torch
+from torch.utils.data import DataLoader
+from torchvision import transforms
+from src.vision.image_dataset import EuroSATDataset
+
+TRAIN_DIR = Path("data/processed/images/train")
+TEST_DIR = Path("data/processed/images/test")
+BATCH_SIZE = 16
+
+def create_dataloaders():
+    transform = transforms.Compose([
+        transforms.ToTensor()
+    ])
+
+    train_dataset = EuroSATDataset(
+        root_dir=TRAIN_DIR,
+        transform=transform
+    )
+
+    test_dataset = EuroSATDataset(
+        root_dir=TEST_DIR,
+        transform=transform
+    )
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=True
+    )
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=False
+    )
+
+    print("=== DataLoader Inspection ===")
+    print(f"Training samples: {len(train_dataset)}")
+    print(f"Testing samples: {len(test_dataset)}")
+    print(f"Classes: {train_dataset.class_names}")
+    print(f"Class mapping: {train_dataset.class_to_index}")
+
+    images, labels = next(iter(train_loader))
+
+    print(f"Batch image shape: {images.shape}")
+    print(f"Batch label shape: {labels.shape}")
+
+    return train_loader, test_loader, train_dataset.class_names
+
+
+def main():
+    create_dataloaders()
+
+if __name__ == "__main__":
+    main()
+
+Command: python3 -m src.vision.train_cnn
+Output:
+	=== DataLoader Inspection ===
+	Training samples: 144
+	Testing samples: 36
+	Classes: ['forest', 'residential', 'river']
+	Class mapping: {'forest': 0, 'residential': 1, 'river': 2}
+	Batch image shape: torch.Size([16, 3, 64, 64])
+	Batch label shape: torch.Size([16])
+
+
+TASK 5. Create a Simple CNN Model
+
+Command: src/vision/cnn_model.py
+
+import torch
+from torch import nn
+
+class SimpleCNN(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        
+        self.features = nn.Sequential(
+            nn.Conv2d(
+                in_channels=3,
+                out_channels=16,
+                kernel_size=3,
+                padding=1
+            ),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(
+                in_channels=16,
+                out_channels=32,
+                kernel_size=3,
+                padding=1
+            ),
+            nn.ReLU(),
+            nn.MaxPool2d(2)
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(32 * 16 * 16, 64),
+            nn.ReLU(),
+            nn.Linear(64, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.classifier(x)
+        return x
+
+
+TASK 6. Train the CNN
+
+from torch import nn
+from src.vision.cnn_model import SimpleCNN
+
+EPOCHS = 8
+LEARNING_RATE = 0.001
+MODEL_PATH = Path("models/cnn_model.pt")
+CLASS_NAMES_PATH = Path("models/cnn_classes.txt")
+
+def get_device():
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    return torch.device("cpu")
+
+
+def train_model(model, train_loader, device):
+    loss_function = nn.CrossEntropyLoss()
+
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=LEARNING_RATE
+    )
+
+    model.train()
+
+    for epoch in range(EPOCHS):
+        total_loss = 0.0
+
+        for images, labels in train_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+
+            optimizer.zero_grad()
+
+            outputs = model(images)
+
+            loss = loss_function(outputs, labels)
+
+            loss.backward()
+
+            optimizer.step()
+
+            total_loss += loss.item()
+
+        average_loss = total_loss / len(train_loader)
+
+        print(f"Epoch {epoch + 1}/{EPOCHS}, Loss: {average_loss:.4f}")
+
+
+
+def main():
+    train_loader, test_loader, class_names = create_dataloaders()
+    
+    device = get_device()
+    
+    print(f"Using device: {device}")
+    
+    model = SimpleCNN(
+        num_classes=len(class_names)
+    )
+    
+    model = model.to(device)
+    
+    train_model(
+        model,
+        train_loader,
+        device
+    )
+
+Command: python3 -m src.vision.train_cnn
+Output:
+	=== DataLoader Inspection ===
+	Training samples: 144
+	Testing samples: 36
+	Classes: ['forest', 'residential', 'river']
+	Class mapping: {'forest': 0, 'residential': 1, 'river': 2}
+	Batch image shape: torch.Size([16, 3, 64, 64])
+	Batch label shape: torch.Size([16])
+	Using device: cpu
+	Epoch 1/8, Loss: 1.0799
+	Epoch 2/8, Loss: 0.8385
+	Epoch 3/8, Loss: 0.5251
+	Epoch 4/8, Loss: 0.4450
+	Epoch 5/8, Loss: 0.4298
+	Epoch 6/8, Loss: 0.3754
+	Epoch 7/8, Loss: 0.3598
+	Epoch 8/8, Loss: 0.3643
+
+
+TASK 7.  Evaluate the CNN
+
+def evaluate_model(model, test_loader, device):
+    model.eval()
+
+    correct = 0
+    total = 0
+
+    with torch.no_grad():
+        for images, labels in test_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+
+            outputs = model(images)
+
+            _, predicted = torch.max(
+                outputs,
+                dim=1
+            )
+
+            total += labels.size(0)
+
+            correct += (
+                predicted == labels
+            ).sum().item()
+
+    accuracy = correct / total
+
+    print("=== Evaluation ===")
+    print(f"Test samples: {total}")
+    print(f"Accuracy: {accuracy:.4f}")
+
+    return accuracy
+
+
+def main():
+    train_loader, test_loader, class_names = create_dataloaders()
+    
+    device = get_device()
+    
+    print(f"Using device: {device}")
+    
+    model = SimpleCNN(
+        num_classes=len(class_names)
+    )
+    
+    model = model.to(device)
+    
+    train_model(
+        model,
+        train_loader,
+        device
+    )
+
+    evaluate_model(
+        model,
+        test_loader,
+        device
+    )
+
+Command: python3 -m src.vision.train_cnn
+Output:
+	=== DataLoader Inspection ===
+	Training samples: 144
+	Testing samples: 36
+	Classes: ['forest', 'residential', 'river']
+	Class mapping: {'forest': 0, 'residential': 1, 'river': 2}
+	Batch image shape: torch.Size([16, 3, 64, 64])
+	Batch label shape: torch.Size([16])
+	Using device: cpu
+	Epoch 1/8, Loss: 1.0799
+	Epoch 2/8, Loss: 0.8385
+	Epoch 3/8, Loss: 0.5251
+	Epoch 4/8, Loss: 0.4450
+	Epoch 5/8, Loss: 0.4298
+	Epoch 6/8, Loss: 0.3754
+	Epoch 7/8, Loss: 0.3598
+	Epoch 8/8, Loss: 0.3643
+	=== Evaluation ===
+	Test samples: 36
+	Accuracy: 0.8056
+
+
+TASK 8. Save the Trained CNN
+
+def save_model(model, class_names):
+    MODEL_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    torch.save(
+        model.state_dict(),
+        MODEL_PATH
+    )
+
+    with open(CLASS_NAMES_PATH, "w") as f:
+        for class_name in class_names:
+            f.write(class_name + "\n")
+
+    print("=== Saving Model ===")
+    print(f"Saved model: {MODEL_PATH}")
+    print(f"Saved classes: {CLASS_NAMES_PATH}")
+
+
+
+def main():
+    train_loader, test_loader, class_names = create_dataloaders()
+    
+    device = get_device()
+    
+    print(f"Using device: {device}")
+    
+    model = SimpleCNN(
+        num_classes=len(class_names)
+    )
+    
+    model = model.to(device)
+    
+    train_model(
+        model,
+        train_loader,
+        device
+    )
+
+    evaluate_model(
+        model,
+        test_loader,
+        device
+    )
+
+    save_model(
+        model,
+        class_names
+    )
+
+Command: python3 -m src.vision.train_cnn
+Output:
+	=== DataLoader Inspection ===
+	Training samples: 144
+	Testing samples: 36
+	Classes: ['forest', 'residential', 'river']
+	Class mapping: {'forest': 0, 'residential': 1, 'river': 2}
+	Batch image shape: torch.Size([16, 3, 64, 64])
+	Batch label shape: torch.Size([16])
+	Using device: cpu
+	Epoch 1/8, Loss: 1.0799
+	Epoch 2/8, Loss: 0.8385
+	Epoch 3/8, Loss: 0.5251
+	Epoch 4/8, Loss: 0.4450
+	Epoch 5/8, Loss: 0.4298
+	Epoch 6/8, Loss: 0.3754
+	Epoch 7/8, Loss: 0.3598
+	Epoch 8/8, Loss: 0.3643
+	=== Evaluation ===
+	Test samples: 36
+	Accuracy: 0.8056
+	=== Saving Model ===
+	Saved model: models/cnn_model.pt
+	Saved classes: models/cnn_classes.txt
+
+
+TASK 9.  Predict a Single Image
+
+Command: touch src/vision/predict_cnn.py
+
+from pathlib import Path
+import torch
+from PIL import Image
+from torchvision import transforms
+import matplotlib.pyplot as plt
+from src.vision.cnn_model import SimpleCNN
+
+MODEL_PATH = Path("models/cnn_model.pt")
+CLASS_NAMES_PATH = Path("models/cnn_classes.txt")
+
+def load_class_names():
+    if not CLASS_NAMES_PATH.exists():
+        print(f"Error: class file not found: {CLASS_NAMES_PATH}")
+        print("Train the model first.")
+        raise SystemExit(1)
+    
+    with open(CLASS_NAMES_PATH, "r") as f:
+        class_names = [
+            line.strip()
+            for line in f.readlines()
+            if line.strip()
+        ]
+
+    return class_names
+
+
+def load_model(class_names):
+    if not MODEL_PATH.exists():
+        print(f"Error: model file not found: {MODEL_PATH}")
+        print("Train the model first.")
+        raise SystemExit(1)
+    
+    model = SimpleCNN(
+        num_classes=len(class_names)
+    )
+    
+    state_dict = torch.load(
+        MODEL_PATH,
+        map_location="cpu"
+    )
+
+    model.load_state_dict(state_dict)
+
+    model.eval()
+
+    return model
+
+
+def predict_image(model, class_names, image_path):
+    path = Path(image_path)
+
+    if not path.exists():
+        print(f"Error: image not found: {path}")
+        return
+    
+    transform = transforms.Compose([
+        transforms.Resize((64, 64)),
+        transforms.ToTensor()
+    ])
+
+    with Image.open(path) as image:
+        image = image.convert("RGB")
+        image_for_plot = image.copy()
+        image_tensor = transform(image)
+
+    image_tensor = image_tensor.unsqueeze(0)
+
+    with torch.no_grad():
+        outputs = model(image_tensor)
+
+        probabilities = torch.softmax(
+            outputs,
+            dim=1
+        )
+
+        confidence, predicted_index = torch.max(
+            probabilities,
+            dim=1
+        )
+
+    predicted_class = class_names[
+        predicted_index.item()
+    ]
+
+    print("=== CNN Prediction ===")
+    print(f"Image: {image_path}")
+    print(f"Predicted class: {predicted_class}")
+    print(f"Confidence: {confidence.item():.4f}")
+
+    plt.imshow(image_for_plot)
+    plt.title(
+        f"Prediction: {predicted_class}\nConfidence: {confidence.item():.4f}"
+    )
+    plt.axis("off")
+    plt.show()
+
+def main():
+    class_names = load_class_names()
+
+    model = load_model(class_names)
+
+    image_path = "data/processed/images/test/forest/forest_0000.jpg"
+    
+    predict_image(
+        model,
+        class_names,
+        image_path
+    )
+
+if __name__ == "__main__":
+    main()
+
+
+Command: python3 -m src.vision.predict_cnn
+Output: 
+	=== CNN Prediction ===
+	Image: data/processed/images/test/forest/forest_0000.jpg
+	Predicted class: forest
+	Confidence: 0.9713
+
+
+TASK 10. Test Unknown and Invalid Inputs
+
+Experiment 1: Unknown EuroSAT Class
+	=== CNN Prediction ===
+	Image: data/raw/eurosat/2750/Highway/Highway_1.jpg
+	Predicted class: residential
+	Confidence: 0.9643
+
+Experiment 2: Random Noise Image
+	=== CNN Prediction ===
+	Image: data/inference_samples/noise.jpg
+	Predicted class: residential
+	Confidence: 0.9976
+
+
+TASK 11. Create a Confusion Matrix
+
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
+
+def plot_confusion_matrix(model, test_loader, device, class_names):
+    model.eval()
+    all_preds = []
+    all_labels = []
+    
+    with torch.no_grad():
+        for images, labels in test_loader:
+            images = images.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs, 1)
+            
+            all_preds.extend(predicted.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+    
+    cm = confusion_matrix(all_labels, all_preds)
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
+    
+    fig, ax = plt.subplots(figsize=(8, 8))
+    disp.plot(ax=ax, cmap='viridis')
+    plt.savefig("report/confusion_matrix.png")
+    print("=== Confusion Matrix Saved ===")
+    print("Plot saved to: report/confusion_matrix.png")
+    plt.show()
+
+def main():
+    train_loader, test_loader, class_names = create_dataloaders()
+    
+    device = get_device()
+    
+    print(f"Using device: {device}")
+    
+    model = SimpleCNN(
+        num_classes=len(class_names)
+    )
+    
+    model = model.to(device)
+    
+    train_model(
+        model,
+        train_loader,
+        device
+    )
+
+    evaluate_model(
+        model,
+        test_loader,
+        device
+    )
+
+    save_model(
+        model,
+        class_names
+    )
+
+    plot_confusion_matrix(model, test_loader, device, class_names)
+
+Command: python3 -m src.vision.train_cnn
+Output:
+	=== DataLoader Inspection ===
+	Training samples: 144
+	Testing samples: 36
+	Classes: ['forest', 'residential', 'river']
+	Class mapping: {'forest': 0, 'residential': 1, 'river': 2}
+	Batch image shape: torch.Size([16, 3, 64, 64])
+	Batch label shape: torch.Size([16])
+	Using device: cpu
+	Epoch 1/8, Loss: 1.0799
+	Epoch 2/8, Loss: 0.8385
+	Epoch 3/8, Loss: 0.5251
+	Epoch 4/8, Loss: 0.4450
+	Epoch 5/8, Loss: 0.4298
+	Epoch 6/8, Loss: 0.3754
+	Epoch 7/8, Loss: 0.3598
+	Epoch 8/8, Loss: 0.3643
+	=== Evaluation ===
+	Test samples: 36
+	Accuracy: 0.8056
+	=== Saving Model ===
+	Saved model: models/cnn_model.pt
+	Saved classes: models/cnn_classes.txt
+	=== Confusion Matrix Saved ===
+	Plot saved to: report/confusion_matrix.png
+
+
+TASK 13. Add Data Augmentation
+Epoch 1/8, Loss: 1.1052
+Epoch 2/8, Loss: 1.0325
+Epoch 3/8, Loss: 0.9511
+Epoch 4/8, Loss: 0.8235
+Epoch 5/8, Loss: 0.6499
+Epoch 6/8, Loss: 0.5365
+Epoch 7/8, Loss: 0.5673
+Epoch 8/8, Loss: 0.5719
+Time: 1.1393179893493652
+=== Evaluation ===
+Test samples: 36
+Accuracy: 0.8056
+The accuracy hasn't improved.
+
+TASK 14. Train for More Epochs
+Epoch 1/20, Loss: 0.9934
+Epoch 2/20, Loss: 0.7899
+Epoch 3/20, Loss: 0.5896
+Epoch 4/20, Loss: 0.4875
+Epoch 5/20, Loss: 0.3829
+Epoch 6/20, Loss: 0.4168
+Epoch 7/20, Loss: 0.4570
+Epoch 8/20, Loss: 0.3928
+Epoch 9/20, Loss: 0.3173
+Epoch 10/20, Loss: 0.2938
+Epoch 11/20, Loss: 0.2714
+Epoch 12/20, Loss: 0.2816
+Epoch 13/20, Loss: 0.4062
+Epoch 14/20, Loss: 0.3380
+Epoch 15/20, Loss: 0.3404
+Epoch 16/20, Loss: 0.2474
+Epoch 17/20, Loss: 0.2703
+Epoch 18/20, Loss: 0.1984
+Epoch 19/20, Loss: 0.1581
+Epoch 20/20, Loss: 0.1688
+Time: 2.203305244445801
+=== Evaluation ===
+Test samples: 36
+Accuracy: 0.8333
+The accuracy has improved.
+
+
+TASK 15. Add a Third Convolutional Layer
+Epoch 1/8, Loss: 1.0618
+Epoch 2/8, Loss: 0.8786
+Epoch 3/8, Loss: 0.6759
+Epoch 4/8, Loss: 0.4571
+Epoch 5/8, Loss: 0.4277
+Epoch 6/8, Loss: 0.4119
+Epoch 7/8, Loss: 0.3797
+Epoch 8/8, Loss: 0.2958
+Time: 0.9645967483520508
+=== Evaluation ===
+Test samples: 36
+Accuracy: 0.8056
+The accuracy hasn't improved.
+
+
+QUESTIONS.
+
+– What is the difference between a flattened image vector and an image tensor? A flattened vector is a 1D list of pixels. An image tensor (3D: Channels, Height, Width) preserves the positions of pixels and their relationships.
+– What does a PyTorch Dataset do? It loads images from disk, applies transformations, and pairs them with their corresponding label.
+– What does a DataLoader do? It manages the data flow by grouping images into batches, shuffling and processing them efficiently.
+– Why are CNNs useful for image data? Because they use convolutional filters to automatically detect local patterns like edges, textures, shapes...
+– What does the model output before the final class is selected? It outputs logits, which are raw numerical scores for each class. These are passed through a softmax to convert it to probabilities.
+– Why can the model classify random or unknown images as one of the known classes? Because the model is forced to map any input image to one of the fixed classes, it doesn't have an unknown class.
+– Why can this behavior be dangerous in real orbital AI systems? It can lead to hallucinations. A satellite might misidentify sensor noise as a class, triggering expensive or dangerous autonomous actions based on false information.
+– What would need to be improved before using such a model operationally? We would need a confidence threshold that rejects low-probability predictions, training on larger datasets, and implementing outlier detection to identify unknown classes.
