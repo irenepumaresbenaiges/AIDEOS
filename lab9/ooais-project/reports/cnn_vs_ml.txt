@@ -1,0 +1,20 @@
+CNN VS CLASSICAL ML
+===================
+
+CLASSICAL ML:
+Model: Random Forest
+Training time: 0.5074 s
+Accuracy: 0.8611
+
+CNN:
+Model: Simple CNN
+Training time: 1.4681 s
+Accuracy: 0.8056
+
+BETTER ACCURACY: Random Forest
+FASTER TRAINING: Random Forest
+FEWER CLASS CONFUSIONS: Random Forest
+GENERALIZATION: Simple CNN
+DIFFICULT IMAGES: Images with mixed land cover are the most difficult. Specifically, the CNN might struggle with river images that contain a lot of forest on the banks, as the convolutional filters pick up both textures.
+MORE ROBUST: Simple CNN
+IS COMPUTATIONAL COST OF CNN IS JUSTIFIED? In this specific case, not yet, but theoretically yes. For this small experiment, Random Forest is 3x faster and more accurate. However, the computational cost of a CNN is justified in real-world orbital systems because it scales better and it handles complexity.

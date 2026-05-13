@@ -1,0 +1,1524 @@
+LABORATORY 9 REPORT
+
+STUDENT: Irene Pumares
+REPO: https://github.com/irenepumaresbenaiges/AIDEOS.git (public)
+
+
+PROJECT STRUCTURE
+
+|--- ooasis-project/
+	|--- data/
+	|	|--- inference_samples/
+	|	|	|--- noise.jpg
+	|	|--- processed/
+	|	|	|--- images/
+	|	|		|--- test/
+	|	|		|	|--- forest/
+	|	|		|	|	|--- forest_****.jpg
+	|	|		|	|--- residential/
+	|	|		|	|	|--- residential_****.jpg
+	|	|		|	|--- river/
+	|	|		|		|--- river_****.jpg
+	|	|		|--- train/
+	|	|			|--- forest/
+	|	|			|	|--- forest_****.jpg
+	|	|			|--- residential/
+	|	|			|	|--- residential_****.jpg
+	|	|			|--- river/
+	|	|				|--- river_****.jpg
+	|	|--- raw/
+	|		|--- eurosat/
+	|			|--- ...
+	|--- models/
+	|	|--- cnn_classes.txt
+	|	|--- cnn_model.pt
+	|	|--- comparison_plot.png
+	|	|--- image_model.joblib
+	|	|--- knn.joblib
+	|	|--- logistic_regression.joblib
+	|	|--- random_forest.joblib
+	|	|--- resnet18_classes.txt
+	|	|--- resnet18_finetuned.pt
+	|	|--- resnet18_finetuned_classes.txt
+	|	|--- resnet18_transfer.pt
+	|	|--- svm.joblib
+	|--- reports/
+	|	|--- cnn_vs_ml.txt
+	|	|--- confusion_matrix.png
+	|	|--- final_engineering_decision.txt
+	|	|--- fine_tuning_analysis.txt
+	|	|--- fine_tuning_confusion_matrix.png
+	|	|--- fine_tuning_report.txt
+	|	|--- gradcam_example.png
+	|	|--- gradcam_forest.png
+	|	|--- gradcam_residential.png
+	|	|--- lab07_report.txt
+	|	|--- lab08_report.txt
+	|	|--- lab09_report.txt
+	|	|--- model_comparison_lab9.txt
+	|	|--- transfer_confusion_matrix.png
+	|	|--- transfer_learning_report.txt
+	|	|--- transfer_prediction_gallery.png
+	|	|--- unknown_input_transfer_analysis.txt
+	|--- src/
+		|--- data/
+		|	|--- create_noise_image.py
+		|	|--- download_eurosat.py
+		|	|--- prepare_image_dataset.py
+		|--- vision/
+			|--- cnn_model.py
+			|--- create_gradcam.py
+			|--- create_transfer_gallery.py
+			|--- feature_extractor.py
+			|--- image_dataset.py
+			|--- predict_all_models.py
+			|--- predict_cnn.py
+			|--- predict_image.py
+			|--- predict_transfer.py
+			|--- train_cnn.py
+			|--- train_finetune.py
+			|--- train_image_model.py
+			|--- train_transfer.py
+
+
+TASK 1. Verify Dataset Availability
+
+Command:
+	ls data/processed/images/train
+	ls data/processed/images/test
+Output:
+	forest  residential  river
+	forest  residential  river
+
+
+TASK 2. Reuse the PyTorch Dataset
+
+Command: python3 src/vision/image_dataset.py
+Output:
+	=== PyTorch Dataset Inspection ===
+	Classes: ['forest', 'residential', 'river']
+	Class mapping: {'forest': 0, 'residential': 1, 'river': 2}
+	Number of samples: 144
+	First image tensor shape: torch.Size([3, 64, 64])
+	First label: 0
+
+
+TASK 3. Why Transfer Learning?
+
+TASK 4. Create Transfer Learning Training Script
+
+Command: touch src/vision/train_transfer.py
+
+from pathlib import Path
+import time
+import torch
+from torch import nn
+from torch.utils.data import DataLoader
+from torchvision import transforms, models
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
+from src.vision.image_dataset import EuroSATDataset
+
+TRAIN_DIR = Path("data/processed/images/train")
+TEST_DIR = Path("data/processed/images/test")
+BATCH_SIZE = 16
+EPOCHS = 8
+LEARNING_RATE = 0.001
+MODEL_PATH = Path("models/resnet18_transfer.pt")
+CLASS_NAMES_PATH = Path("models/resnet18_classes.txt")
+REPORT_PATH = Path("reports/transfer_learning_report.txt")
+CONFUSION_MATRIX_PATH = Path("reports/transfer_confusion_matrix.png")
+
+TASK 5. Create DataLoaders for ResNet18
+
+def create_dataloaders():
+
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor()
+    ])
+
+    train_dataset = EuroSATDataset(
+        root_dir=TRAIN_DIR,
+        transform=transform
+    )
+
+    test_dataset = EuroSATDataset(
+        root_dir=TEST_DIR,
+        transform=transform
+    )
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=True
+    )
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=False
+    )
+
+    print("=== Transfer Learning DataLoader ===")
+    print(f"Training samples: {len(train_dataset)}")
+    print(f"Testing samples: {len(test_dataset)}")
+    print(f"Classes: {train_dataset.class_names}")
+    print(f"Class mapping: {train_dataset.class_to_index}")
+
+    images, labels = next(iter(train_loader))
+
+    print(f"Batch image shape: {images.shape}")
+    print(f"Batch label shape: {labels.shape}")
+    
+    return train_loader, test_loader, train_dataset.class_names
+
+
+TASK 6. Select Device
+
+def get_device():
+    
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    
+    return torch.device("cpu")
+
+
+TASK 7. Load Pretrained ResNet18
+
+def create_transfer_model(num_classes):
+    model = models.resnet18(
+        weights=models.ResNet18_Weights.DEFAULT
+    )
+    return model
+
+
+TASK 8.  Freeze Feature Extractor
+
+def create_transfer_model(num_classes):
+    model = models.resnet18(
+        weights=models.ResNet18_Weights.DEFAULT
+    )
+
+    for parameter in model.parameters():
+        parameter.requires_grad = False
+    return model
+
+
+TASK 9. Replace the Classifier Head
+
+def create_transfer_model(num_classes):
+    model = models.resnet18(
+        weights=models.ResNet18_Weights.DEFAULT
+    )
+
+    for parameter in model.parameters():
+        parameter.requires_grad = False
+    
+    input_features = model.fc.in_features
+    
+    model.fc = nn.Linear(
+        input_features,
+        num_classes
+    )
+
+    return model
+
+
+TASK 9.1. Inspect Trainable Parameters
+
+def print_trainable_parameters(model):
+    print("=== Trainable Parameters ===")
+
+    trainable_count = 0
+    total_count = 0
+
+    for name, parameter in model.named_parameters():
+        total_count += parameter.numel()
+
+        if parameter.requires_grad:
+            trainable_count += parameter.numel()
+            print(name)
+
+    print(f"Trainable parameters: {trainable_count}")
+    print(f"Total parameters: {total_count}")
+
+
+if __name__ == "__main__":
+    train_loader, test_loader, class_names = create_dataloaders()
+    device = get_device()
+    model = create_transfer_model(len(class_names))
+    print_trainable_parameters(model)
+
+
+Command: python3 -m src.vision.train_transfer
+Output:
+	=== Transfer Learning DataLoader ===
+	Training samples: 144
+	Testing samples: 36
+	Classes: ['forest', 'residential', 'river']
+	Class mapping: {'forest': 0, 'residential': 1, 'river': 2}
+	Batch image shape: torch.Size([16, 3, 224, 224])
+	Batch label shape: torch.Size([16])
+	Downloading: "https://download.pytorch.org/models/resnet18-f37072fd.pth" to 	/home/irene/.cache/torch/hub/checkpoints/resnet18-f37072fd.pth
+	100.0%
+	=== Trainable Parameters ===
+	fc.weight
+	fc.bias
+	Trainable parameters: 1539
+	Total parameters: 11178051
+
+
+TASK 10. Train the Classifier Head
+
+def train_model(model, train_loader, device):
+    loss_function = nn.CrossEntropyLoss()
+
+    optimizer = torch.optim.Adam(
+        model.fc.parameters(),
+        lr=LEARNING_RATE
+    )
+
+    model.train()
+
+    start_time = time.time()
+
+    for epoch in range(EPOCHS):
+        total_loss = 0.0
+
+        for images, labels in train_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+
+            optimizer.zero_grad()
+
+            outputs = model(images)
+
+            loss = loss_function(outputs, labels)
+
+            loss.backward()
+
+            optimizer.step()
+
+            total_loss += loss.item()
+
+        average_loss = total_loss / len(train_loader)
+
+        print(f"Epoch {epoch + 1}/{EPOCHS}, Loss: {average_loss:.4f}")
+    
+    end_time = time.time()
+    training_time = end_time - start_time
+    
+    print(f"Training time: {training_time:.2f} seconds")
+    
+    return training_time
+
+
+TASK 11. Evaluate the Model
+
+def evaluate_model(model, test_loader, device, class_names):
+    model.eval()
+
+    all_labels = []
+    all_predictions = []
+
+    with torch.no_grad():
+        for images, labels in test_loader:
+            images = images.to(device)
+
+            outputs = model(images)
+
+            _, predicted = torch.max(
+                outputs,
+                dim=1
+            )
+
+            all_labels.extend(labels.numpy())
+            all_predictions.extend(predicted.cpu().numpy())
+    
+    accuracy = accuracy_score(
+        all_labels,
+        all_predictions
+    )
+
+    print("=== Transfer Learning Evaluation ===")
+    print(f"Test samples: {len(all_labels)}")
+    print(f"Accuracy: {accuracy:.4f}")
+
+    matrix = confusion_matrix(
+        all_labels,
+        all_predictions
+    )
+
+    display = ConfusionMatrixDisplay(
+        confusion_matrix=matrix,
+        display_labels=class_names
+    )
+
+    CONFUSION_MATRIX_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    display.plot()
+    plt.title("Transfer Learning Confusion Matrix")
+    plt.tight_layout()
+    plt.savefig(CONFUSION_MATRIX_PATH)
+    plt.close()
+
+    print(f"Saved confusion matrix: {CONFUSION_MATRIX_PATH}")
+    
+    return accuracy, all_labels, all_predictions
+
+
+TASK 12. Save Model and Class Names
+
+def save_model(model, class_names):
+    MODEL_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    torch.save(
+        model.state_dict(),
+        MODEL_PATH
+    )
+
+    with open(CLASS_NAMES_PATH, "w") as f:
+        for class_name in class_names:
+            f.write(class_name + "\n")
+    
+    print("=== Saving Transfer Model ===")
+    print(f"Saved model: {MODEL_PATH}")
+    print(f"Saved classes: {CLASS_NAMES_PATH}")
+
+
+TASK 13. Save Training Report
+
+def save_report(accuracy, training_time, class_names):
+    REPORT_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    with open(REPORT_PATH, "w") as f:
+        f.write("TRANSFER LEARNING REPORT\n")
+        f.write("========================\n\n")
+
+        f.write("Model: ResNet18 pretrained on ImageNet\n")
+        f.write("Training mode: frozen feature extractor\n")
+        f.write("Classifier: replaced final linear layer\n\n")
+        
+        f.write(f"Classes: {class_names}\n")
+        f.write(f"Epochs: {EPOCHS}\n")
+        f.write(f"Learning rate: {LEARNING_RATE}\n")
+        f.write(f"Training time: {training_time:.2f} seconds\n")
+        f.write(f"Test accuracy: {accuracy:.4f}\n\n")
+        
+        f.write("Interpretation:\n")
+        f.write(
+        "The model reused pretrained visual features and trained only "
+        "a new classifier head for the EuroSAT subset.\n"
+        )
+
+    print(f"Saved report: {REPORT_PATH}")
+
+
+TASK 14. Add Main Function
+
+def main():
+    train_loader, test_loader, class_names = create_dataloaders()
+    
+    device = get_device()
+    
+    print(f"Using device: {device}")
+    
+    model = create_transfer_model(
+        num_classes=len(class_names)
+    )
+
+    print_trainable_parameters(model)
+    
+    model = model.to(device)
+    training_time = train_model(
+        model,
+        train_loader,
+        device
+    )
+
+    accuracy, all_labels, all_predictions = evaluate_model(
+        model,
+        test_loader,
+        device,
+        class_names
+    )
+
+    save_model(
+        model,
+        class_names
+    )
+    
+    save_report(
+        accuracy,
+        training_time,
+        class_names
+    )
+
+if __name__ == "__main__":
+    main()
+
+
+Command: python3 -m src.vision.train_transfer
+Output:
+	=== Transfer Learning DataLoader ===
+	Training samples: 144
+	Testing samples: 36
+	Classes: ['forest', 'residential', 'river']
+	Class mapping: {'forest': 0, 'residential': 1, 'river': 2}
+	Batch image shape: torch.Size([16, 3, 224, 224])
+	Batch label shape: torch.Size([16])
+	Using device: cpu
+	=== Trainable Parameters ===
+	fc.weight
+	fc.bias
+	Trainable parameters: 1539
+	Total parameters: 11178051
+	Epoch 1/8, Loss: 1.1003
+	Epoch 2/8, Loss: 0.8018
+	Epoch 3/8, Loss: 0.5213
+	Epoch 4/8, Loss: 0.4576
+	Epoch 5/8, Loss: 0.3742
+	Epoch 6/8, Loss: 0.3092
+	Epoch 7/8, Loss: 0.2326
+	Epoch 8/8, Loss: 0.2348
+	Training time: 18.46 seconds
+	=== Transfer Learning Evaluation ===
+	Test samples: 36
+	Accuracy: 0.9722
+	Saved confusion matrix: reports/transfer_confusion_matrix.png
+	=== Saving Transfer Model ===
+	Saved model: models/resnet18_transfer.pt
+	Saved classes: models/resnet18_classes.txt
+	Saved report: reports/transfer_learning_report.txt
+
+
+TASK 15. Predict a Single Image Using Transfer Learning Model
+
+Command: touch src/vision/predict_transfer.py
+
+
+from pathlib import Path
+import torch
+from torch import nn
+from torchvision import transforms, models
+from PIL import Image
+import matplotlib.pyplot as plt
+
+MODEL_PATH = Path("models/resnet18_transfer.pt")
+CLASS_NAMES_PATH = Path("models/resnet18_classes.txt")
+
+def load_class_names():
+    if not CLASS_NAMES_PATH.exists():
+        print(f"Error: class file not found: {CLASS_NAMES_PATH}")
+        print("Train the transfer model first.")
+        raise SystemExit(1)
+    
+    with open(CLASS_NAMES_PATH, "r") as f:
+        class_names = [
+            line.strip()
+            for line in f.readlines()
+            if line.strip()
+        ]
+
+    return class_names
+
+
+def load_model(class_names):
+    if not MODEL_PATH.exists():
+        print(f"Error: model file not found: {MODEL_PATH}")
+        print("Train the transfer model first.")
+        raise SystemExit(1)
+    
+    model = models.resnet18(weights=None)
+
+    input_features = model.fc.in_features
+
+    model.fc = nn.Linear(
+        input_features,
+        len(class_names)
+    )
+
+    state_dict = torch.load(
+        MODEL_PATH,
+        map_location="cpu"
+    )
+
+    model.load_state_dict(state_dict)
+
+    model.eval()
+
+    return model
+
+
+def predict_image(model, class_names, image_path):
+    path = Path(image_path)
+
+    if not path.exists():
+        print(f"Error: image not found: {path}")
+        return
+    
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor()
+    ])
+
+    with Image.open(path) as image:
+        image = image.convert("RGB")
+        image_for_plot = image.copy()
+        image_tensor = transform(image)
+
+    image_tensor = image_tensor.unsqueeze(0)
+
+    with torch.no_grad():
+        outputs = model(image_tensor)
+
+        probabilities = torch.softmax(
+            outputs,
+            dim=1
+        )
+
+        confidence, predicted_index = torch.max(
+            probabilities,
+            dim=1
+        )
+        
+    predicted_class = class_names[
+        predicted_index.item()
+    ]
+
+    print("=== Transfer Learning Prediction ===")
+    print(f"Image: {image_path}")
+    print(f"Predicted class: {predicted_class}")
+    print(f"Confidence: {confidence.item():.4f}")
+
+    plt.imshow(image_for_plot)
+    plt.title(
+        f"Transfer model prediction: {predicted_class}\n"
+        f"Confidence: {confidence.item():.4f}"
+    )
+    plt.axis("off")
+    plt.show()
+
+
+def main():
+    class_names = load_class_names()
+
+    model = load_model(class_names)
+
+    image_path = "data/processed/images/test/forest/forest_0000.jpg"
+    
+    predict_image(
+        model,
+        class_names,
+        image_path
+    )
+
+if __name__ == "__main__":
+    main()
+
+
+Command: python3 -m src.vision.predict_transfer
+Output:
+	=== Transfer Learning Prediction ===
+	Image: data/processed/images/test/forest/forest_0000.jpg
+	Predicted class: forest
+	Confidence: 0.8114
+
+
+TASK 16. Fine-Tune the Last ResNet Block
+
+Command: cp src/vision/train_transfer.py src/vision/train_finetune.py
+
+from pathlib import Path
+import time
+import torch
+from torch import nn
+from torch.utils.data import DataLoader
+from torchvision import transforms, models
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
+from src.vision.image_dataset import EuroSATDataset
+
+TRAIN_DIR = Path("data/processed/images/train")
+TEST_DIR = Path("data/processed/images/test")
+BATCH_SIZE = 16
+EPOCHS = 8
+LEARNING_RATE = 0.001
+MODEL_PATH = Path("models/resnet18_finetuned.pt")
+CLASS_NAMES_PATH = Path("models/resnet18_finetuned_classes.txt")
+REPORT_PATH = Path("reports/fine_tuning_report.txt")
+CONFUSION_MATRIX_PATH = Path("reports/fine_tuning_confusion_matrix.png")
+
+def create_dataloaders():
+
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor()
+    ])
+
+    train_dataset = EuroSATDataset(
+        root_dir=TRAIN_DIR,
+        transform=transform
+    )
+
+    test_dataset = EuroSATDataset(
+        root_dir=TEST_DIR,
+        transform=transform
+    )
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=True
+    )
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=False
+    )
+
+    print("=== Transfer Learning DataLoader ===")
+    print(f"Training samples: {len(train_dataset)}")
+    print(f"Testing samples: {len(test_dataset)}")
+    print(f"Classes: {train_dataset.class_names}")
+    print(f"Class mapping: {train_dataset.class_to_index}")
+
+    images, labels = next(iter(train_loader))
+
+    print(f"Batch image shape: {images.shape}")
+    print(f"Batch label shape: {labels.shape}")
+
+    return train_loader, test_loader, train_dataset.class_names
+
+
+def get_device():
+
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    
+    return torch.device("cpu")
+
+
+def create_transfer_model(num_classes):
+    model = models.resnet18(
+        weights=models.ResNet18_Weights.DEFAULT
+    )
+
+    for parameter in model.parameters():
+        parameter.requires_grad = False
+    
+    for parameter in model.layer4.parameters():
+        parameter.requires_grad = True
+    
+    input_features = model.fc.in_features
+
+    model.fc = nn.Linear(
+        input_features,
+        num_classes
+    )
+
+    return model
+
+
+def print_trainable_parameters(model):
+    print("=== Trainable Parameters ===")
+
+    trainable_count = 0
+    total_count = 0
+
+    for name, parameter in model.named_parameters():
+        total_count += parameter.numel()
+
+        if parameter.requires_grad:
+            trainable_count += parameter.numel()
+            print(name)
+
+    print(f"Trainable parameters: {trainable_count}")
+    print(f"Total parameters: {total_count}")
+
+
+def train_model(model, train_loader, device):
+    loss_function = nn.CrossEntropyLoss()
+
+    optimizer = torch.optim.Adam(
+        filter(
+            lambda parameter: parameter.requires_grad,
+            model.parameters()
+        ),
+        lr=LEARNING_RATE
+    )
+
+    model.train()
+
+    start_time = time.time()
+
+    for epoch in range(EPOCHS):
+        total_loss = 0.0
+
+        for images, labels in train_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+
+            optimizer.zero_grad()
+
+            outputs = model(images)
+
+            loss = loss_function(outputs, labels)
+
+            loss.backward()
+
+            optimizer.step()
+
+            total_loss += loss.item()
+
+        average_loss = total_loss / len(train_loader)
+
+        print(f"Epoch {epoch + 1}/{EPOCHS}, Loss: {average_loss:.4f}")
+    
+    end_time = time.time()
+    training_time = end_time - start_time
+    
+    print(f"Training time: {training_time:.2f} seconds")
+    
+    return training_time
+
+
+def evaluate_model(model, test_loader, device, class_names):
+    model.eval()
+
+    all_labels = []
+    all_predictions = []
+
+    with torch.no_grad():
+        for images, labels in test_loader:
+            images = images.to(device)
+
+            outputs = model(images)
+
+            _, predicted = torch.max(
+                outputs,
+                dim=1
+            )
+
+            all_labels.extend(labels.numpy())
+            all_predictions.extend(predicted.cpu().numpy())
+    
+    accuracy = accuracy_score(
+        all_labels,
+        all_predictions
+    )
+
+    print("=== Transfer Learning Evaluation ===")
+    print(f"Test samples: {len(all_labels)}")
+    print(f"Accuracy: {accuracy:.4f}")
+
+    matrix = confusion_matrix(
+        all_labels,
+        all_predictions
+    )
+
+    display = ConfusionMatrixDisplay(
+        confusion_matrix=matrix,
+        display_labels=class_names
+    )
+
+    CONFUSION_MATRIX_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    display.plot()
+    plt.title("Transfer Learning Confusion Matrix")
+    plt.tight_layout()
+    plt.savefig(CONFUSION_MATRIX_PATH)
+    plt.close()
+
+    print(f"Saved confusion matrix: {CONFUSION_MATRIX_PATH}")
+    
+    return accuracy, all_labels, all_predictions
+
+
+def save_model(model, class_names):
+    MODEL_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    torch.save(
+        model.state_dict(),
+        MODEL_PATH
+    )
+
+    with open(CLASS_NAMES_PATH, "w") as f:
+        for class_name in class_names:
+            f.write(class_name + "\n")
+    
+    print("=== Saving Transfer Model ===")
+    print(f"Saved model: {MODEL_PATH}")
+    print(f"Saved classes: {CLASS_NAMES_PATH}")
+
+
+def save_report(accuracy, training_time, class_names):
+    REPORT_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    with open(REPORT_PATH, "w") as f:
+        f.write("TRANSFER LEARNING REPORT\n")
+        f.write("========================\n\n")
+
+        f.write("Model: ResNet18 pretrained on ImageNet\n")
+        f.write("Training mode: fine-tuned last ResNet block\n")
+        f.write("Trainable layers: layer4 and final classifier\n\n")
+        
+        f.write(f"Classes: {class_names}\n")
+        f.write(f"Epochs: {EPOCHS}\n")
+        f.write(f"Learning rate: {LEARNING_RATE}\n")
+        f.write(f"Training time: {training_time:.2f} seconds\n")
+        f.write(f"Test accuracy: {accuracy:.4f}\n\n")
+        
+        f.write("Interpretation:\n")
+        f.write(
+        "The model reused pretrained visual features and trained only "
+        "a new classifier head for the EuroSAT subset.\n"
+        )
+
+    print(f"Saved report: {REPORT_PATH}")
+
+
+def main():
+    train_loader, test_loader, class_names = create_dataloaders()
+    
+    device = get_device()
+    
+    print(f"Using device: {device}")
+    
+    model = create_transfer_model(
+        num_classes=len(class_names)
+    )
+
+    print_trainable_parameters(model)
+    
+    model = model.to(device)
+    training_time = train_model(
+        model,
+        train_loader,
+        device
+    )
+
+    accuracy, all_labels, all_predictions = evaluate_model(
+        model,
+        test_loader,
+        device,
+        class_names
+    )
+
+    save_model(
+        model,
+        class_names
+    )
+    
+    save_report(
+        accuracy,
+        training_time,
+        class_names
+    )
+
+if __name__ == "__main__":
+    main()
+
+Command: python3 -m src.vision.train_finetune
+Output: 
+	=== Transfer Learning DataLoader ===
+	Training samples: 144
+	Testing samples: 36
+	Classes: ['forest', 'residential', 'river']
+	Class mapping: {'forest': 0, 'residential': 1, 'river': 2}
+	Batch image shape: torch.Size([16, 3, 224, 224])
+	Batch label shape: torch.Size([16])
+	Using device: cpu
+	=== Trainable Parameters ===
+	layer4.0.conv1.weight
+	layer4.0.bn1.weight
+	layer4.0.bn1.bias
+	layer4.0.conv2.weight
+	layer4.0.bn2.weight
+	layer4.0.bn2.bias
+	layer4.0.downsample.0.weight
+	layer4.0.downsample.1.weight
+	layer4.0.downsample.1.bias
+	layer4.1.conv1.weight
+	layer4.1.bn1.weight
+	layer4.1.bn1.bias
+	layer4.1.conv2.weight
+	layer4.1.bn2.weight
+	layer4.1.bn2.bias
+	fc.weight
+	fc.bias
+	Trainable parameters: 8395267
+	Total parameters: 11178051
+	Epoch 1/8, Loss: 0.3690
+	Epoch 2/8, Loss: 0.1867
+	Epoch 3/8, Loss: 0.1065
+	Epoch 4/8, Loss: 0.0078
+	Epoch 5/8, Loss: 0.0353
+	Epoch 6/8, Loss: 0.0054
+	Epoch 7/8, Loss: 0.0373
+	Epoch 8/8, Loss: 0.0166
+	Training time: 24.74 seconds
+	=== Transfer Learning Evaluation ===
+	Test samples: 36
+	Accuracy: 1.0000
+	Saved confusion matrix: reports/fine_tuning_confusion_matrix.png
+	=== Saving Transfer Model ===
+	Saved model: models/resnet18_finetuned.pt
+	Saved classes: models/resnet18_finetuned_classes.txt
+	Saved report: reports/fine_tuning_report.txt
+	
+
+TASK 17. Compare SimpleCNN and ResNet18 Transfer Learning
+
+touch reports/model_comparison_lab9.txt
+
+• Which model achieved the best accuracy? Fine-tuned
+• Which model trained fastest? SimpleCNN
+• Which model required the least implementation effort? Frozen
+• Which model is most suitable for a small dataset? Fine-tuned
+• Which model is most suitable for a real operational system? Fine-tuned
+• When would you train a CNN from scratch? When the dataset is massive and domain-specific (millions of images) and is significantly different from standard datasets like ImageNet.
+• When would you use transfer learning? In most practical scenarios, especially when having limitations with labeled data, time or computational resources.
+• When would you fine-tune a pretrained model? When the target images are different from the original training data or when I have enough data to update the weights causing the model to forget itas original knowledge.
+
+
+TASK 18. Test Unknown Inputs Again
+
+Image: data/raw/eurosat/2750/Highway/Highway_1.jpg
+Predicted class: river
+Confidence: 0.5503
+
+Image: data/inference_samples/noise.jpg
+Predicted class: forest
+Confidence: 0.4718
+
+Add ImageNet Normalization
+
+Image: data/raw/eurosat/2750/Highway/Highway_1.jpg
+Predicted class: river
+Confidence: 0.9419
+
+Image: data/inference_samples/noise.jpg
+Predicted class: river
+Confidence: 0.4868
+
+• Did normalization improve accuracy? No.
+• Did training become more stable? Yes, now the los decreased consistently in every epoch, without fluctuations, now is smoother, so more stable.
+• Why may pretrained models require specific preprocessing? Because pecific preprocessing ensures that the data stays within a range where activation functions don't saturate, preventing "dead neurons" and ensuring gradients flow correctly during training.
+
+
+27. Create a Prediction Gallery
+
+Command: touch src/vision/create_transfer_gallery.py
+
+from pathlib import Path
+import torch
+from torch import nn
+from torchvision import transforms, models
+from PIL import Image
+import matplotlib.pyplot as plt
+
+TEST_DIR = Path("data/processed/images/test")
+MODEL_PATH = Path("models/resnet18_transfer.pt")
+CLASS_NAMES_PATH = Path("models/resnet18_classes.txt")
+OUTPUT_PATH = Path("reports/transfer_prediction_gallery.png")
+IMAGES_PER_CLASS = 3
+
+def load_class_names():
+    if not CLASS_NAMES_PATH.exists():
+        print(f"Error: class file not found: {CLASS_NAMES_PATH}")
+        print("Train the transfer model first.")
+        raise SystemExit(1)
+
+    with open(CLASS_NAMES_PATH, "r") as f:
+        class_names = [
+            line.strip()
+            for line in f.readlines()
+            if line.strip()
+        ]
+
+    return class_names
+
+
+def load_model(class_names):
+    if not MODEL_PATH.exists():
+        print(f"Error: model file not found: {MODEL_PATH}")
+        print("Train the transfer model first.")
+        raise SystemExit(1)
+    
+    model = models.resnet18(weights=None)
+
+    input_features = model.fc.in_features
+
+    model.fc = nn.Linear(
+        input_features,
+        len(class_names)
+    )
+
+    state_dict = torch.load(
+        MODEL_PATH,
+        map_location="cpu"
+    )
+
+    model.load_state_dict(state_dict)
+
+    model.eval()
+
+    return model
+
+
+def select_test_images(class_names):
+    selected_images = []
+
+    for class_name in class_names:
+        class_dir = TEST_DIR / class_name
+
+        image_paths = sorted([
+            path for path in class_dir.iterdir()
+            if path.suffix.lower() in [".jpg", ".jpeg", ".png"]
+        ])
+
+        for image_path in image_paths[:IMAGES_PER_CLASS]:
+            selected_images.append(
+                (image_path, class_name)
+            )
+
+    return selected_images
+
+def predict_image(model, class_names, image_path, transform):
+    with Image.open(image_path) as image:
+        image = image.convert("RGB")
+        image_tensor = transform(image)
+
+    image_tensor = image_tensor.unsqueeze(0)
+
+    with torch.no_grad():
+        outputs = model(image_tensor)
+
+        probabilities = torch.softmax(
+            outputs,
+            dim=1
+        )
+
+        confidence, predicted_index = torch.max(
+            probabilities,
+            dim=1
+        )
+    
+    predicted_class = class_names[
+        predicted_index.item()
+    ]
+
+    return predicted_class, confidence.item()
+
+
+def create_gallery(model, class_names):
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
+        )
+    ])
+
+    selected_images = select_test_images(class_names)
+
+    rows = len(class_names)
+    columns = IMAGES_PER_CLASS
+
+    figure, axes = plt.subplots(
+        rows,
+        columns,
+        figsize=(10, 8)
+    )
+
+    for axis, (image_path, true_class) in zip(
+        axes.flatten(),
+        selected_images
+    ):
+        predicted_class, confidence = predict_image(
+            model,
+            class_names,
+            image_path,
+            transform
+        )
+
+        with Image.open(image_path) as image:
+            image = image.convert("RGB")
+
+            axis.imshow(image)
+            axis.axis("off")
+            axis.set_title(
+                f"True: {true_class}\n"
+                f"Pred: {predicted_class}\n"
+                f"Conf: {confidence:.2f}"
+            )
+
+    plt.tight_layout()
+
+    OUTPUT_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    plt.savefig(OUTPUT_PATH)
+    plt.close()
+
+    print(f"Saved prediction gallery: {OUTPUT_PATH}")
+
+
+def main():
+    class_names = load_class_names()
+
+    model = load_model(class_names)
+
+    create_gallery(
+        model, 
+        class_names
+    )
+
+if __name__ == "__main__":
+    main()
+
+Command: python3 -m src.vision.create_transfer_gallery
+Output: Saved prediction gallery: reports/transfer_prediction_gallery.png
+
+• Which predictions look visually correct? All of them
+• Are any wrong predictions understandable from the image? No.
+• Does the model seem more confident on some classes than others? More or less. Images that perfectly match the typical texture of a class (like a dense, uniform forest) tend to yield higher confidence than those with more varied patterns.
+• Can visual inspection reveal problems that accuracy alone does not show? Yes. If a river is wider than those seen in the training set, the confidence drops, suggesting the model is sensitive to the proportion of the water body. Also, deviations in color (such as residential areas looking more blue/green or forests appearing more blue)lead to lower confidence.
+
+
+28. Visual Explanation with Grad-CAM
+
+Command: touch src/vision/create_gradcam.py
+
+from pathlib import Path
+import numpy as np
+import torch
+from torch import nn
+from torchvision import transforms, models
+from PIL import Image
+import matplotlib.pyplot as plt
+
+MODEL_PATH = Path("models/resnet18_transfer.pt")
+CLASS_NAMES_PATH = Path("models/resnet18_classes.txt")
+IMAGE_PATH = Path("data/processed/images/test/river/river_0000.jpg")
+OUTPUT_PATH = Path("reports/gradcam_example.png")
+
+def load_class_names():
+    if not CLASS_NAMES_PATH.exists():
+        print(f"Error: class file not found: {CLASS_NAMES_PATH}")
+        print("Train the transfer model first.")
+        raise SystemExit(1)
+    
+    with open(CLASS_NAMES_PATH, "r") as f:
+        class_names = [
+            line.strip()
+            for line in f.readlines()
+            if line.strip()
+        ]
+
+    return class_names
+
+
+def load_model(class_names):
+    if not MODEL_PATH.exists():
+        print(f"Error: model file not found: {MODEL_PATH}")
+        print("Train the transfer model first.")
+        raise SystemExit(1)
+    
+    model = models.resnet18(weights=None)
+
+    input_features = model.fc.in_features
+
+    model.fc = nn.Linear(
+        input_features,
+        len(class_names)
+    )
+
+    state_dict = torch.load(
+        MODEL_PATH,
+        map_location="cpu"
+    )
+
+    model.load_state_dict(state_dict)
+    model.eval()
+
+    return model
+
+
+def load_image(image_path):
+    if not image_path.exists():
+        print(f"Error: image not found: {image_path}")
+        raise SystemExit(1)
+    
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225]
+        )
+    ])
+
+    display_transform = transforms.Compose([
+        transforms.Resize((224, 224))
+    ])
+
+    with Image.open(image_path) as image:
+        image = image.convert("RGB")
+        display_image = display_transform(image)
+        image_tensor = transform(image)
+
+    image_tensor = image_tensor.unsqueeze(0)
+
+    return image_tensor, display_image
+
+
+class GradCAM:
+    def __init__(self, model, target_layer):
+        self.model = model
+        self.target_layer = target_layer
+
+        self.activations = None
+        self.gradients = None
+
+        self.forward_hook = target_layer.register_forward_hook(
+            self.save_activations
+        )
+
+        self.backward_hook = target_layer.register_full_backward_hook(
+            self.save_gradients
+        )
+
+    def save_activations(self, module, input_data, output_data):
+        self.activations = output_data.detach()
+    
+    def save_gradients(self, module, grad_input, grad_output):
+        self.gradients = grad_output[0].detach()
+
+    def generate(self, image_tensor, target_class_index):
+        self.model.zero_grad()
+
+        outputs = self.model(image_tensor)
+
+        score = outputs[0, target_class_index]
+
+        score.backward()
+
+        gradients = self.gradients[0]
+        activations = self.activations[0]
+
+        weights = gradients.mean(
+            dim=(1, 2)
+        )
+
+        cam = torch.zeros(
+            activations.shape[1:],
+            dtype=torch.float32
+        )
+
+        for channel_index, weight in enumerate(weights):
+            cam += weight * activations[channel_index]
+
+        cam = torch.relu(cam)
+
+        cam = cam - cam.min()
+
+        if cam.max() > 0:
+            cam = cam / cam.max()
+
+        return cam.numpy()
+    
+    def close(self):
+        self.forward_hook.remove()
+        self.backward_hook.remove()
+
+
+def predict(model, image_tensor, class_names):
+    with torch.no_grad():
+        outputs = model(image_tensor)
+
+        probabilities = torch.softmax(
+            outputs,
+            dim=1
+        )
+
+        confidence, predicted_index = torch.max(
+            probabilities,
+            dim=1
+        )
+
+    predicted_class = class_names[
+        predicted_index.item()
+    ]
+
+    return predicted_index.item(), predicted_class, confidence.item()
+
+
+def save_gradcam_visualization(
+    display_image,
+    cam,
+    predicted_class,
+    confidence
+):
+    image_array = np.array(display_image)
+
+    cam_image = Image.fromarray(
+        np.uint8(cam * 255)
+    )
+
+    cam_image = cam_image.resize(
+        display_image.size
+    )
+
+    cam_resized = np.array(cam_image) / 255.0
+
+    figure, axes = plt.subplots(
+        1,
+        3,
+        figsize=(12, 4)
+    )
+
+    axes[0].imshow(image_array)
+    axes[0].set_title("Original image")
+    axes[0].axis("off")
+
+    axes[1].imshow(cam_resized, cmap="jet")
+    axes[1].set_title("Grad-CAM heatmap")
+    axes[1].axis("off")
+
+    axes[2].imshow(image_array)
+    axes[2].imshow(
+        cam_resized,
+        cmap="jet",
+        alpha=0.45
+    )
+    axes[2].set_title(
+        f"Prediction: {predicted_class}\n"
+        f"Confidence: {confidence:.2f}"
+    )
+    axes[2].axis("off")
+
+    plt.tight_layout()
+
+    OUTPUT_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    plt.savefig(OUTPUT_PATH)
+    plt.close()
+
+    print(f"Saved Grad-CAM visualization: {OUTPUT_PATH}")
+        
+
+def main():
+    class_names = load_class_names()
+
+    model = load_model(class_names)
+
+    image_tensor, display_image = load_image(
+        IMAGE_PATH
+    )
+
+    predicted_index, predicted_class, confidence = predict(
+        model,
+        image_tensor,
+        class_names
+    )
+
+    print("=== Grad-CAM Explanation ===")
+    print(f"Image: {IMAGE_PATH}")
+    print(f"Predicted class: {predicted_class}")
+    print(f"Confidence: {confidence:.4f}")
+
+    gradcam = GradCAM(
+        model=model,
+        target_layer=model.layer4
+    )
+
+    cam = gradcam.generate(
+        image_tensor=image_tensor,
+        target_class_index=predicted_index
+    )
+
+    gradcam.close()
+    
+    save_gradcam_visualization(
+        display_image=display_image,
+        cam=cam,
+        predicted_class=predicted_class,
+        confidence=confidence
+    )
+
+
+if __name__ == "__main__":
+    main()
+
+Command: python3 -m src.vision.create_gradcam
+Output: 
+	=== Grad-CAM Explanation ===
+	Image: data/processed/images/test/river/river_0000.jpg
+	Predicted class: river
+	Confidence: 0.7222
+	Saved Grad-CAM visualization: reports/gradcam_example.png
+
+
+=== Grad-CAM Explanation ===
+Image: data/processed/images/test/forest/forest_0000.jpg
+Predicted class: forest
+Confidence: 0.9165
+Saved Grad-CAM visualization: reports/gradcam_forest.png
+
+=== Grad-CAM Explanation ===
+Image: data/processed/images/test/residential/residential_0000.jpg
+Predicted class: residential
+Confidence: 0.9812
+Saved Grad-CAM visualization: reports/gradcam_residential.png
+
+
+• Which regions of the image were highlighted by Grad-CAM? The central textural regions of the images. For forest, dense green textures, for residential, shapes of buildings and road networks, and for river, dark bands representing water.
+• Did the highlighted regions make sense for the predicted class? Yes.
+• Did the model focus on land-cover patterns or irrelevant image regions? Primarly on relevant land-cover patterns.
+• Did Grad-CAM reveal anything that accuracy alone did not show? Yes. When a forest or residential area has a blueish color, the heatmap shifts slightly, indicating that the model might be over-relying on color information rather than purely on geometric shapes.
+• Would such a visualization be useful during model validation for Earth Observation systems? Yes, it allows engineers to verify that a model isn't cheating.
+
+
+QUESTIONS.
+
+• What is transfer learning? It is a technique where a model developed for a specific task is used as the starting point for a model on other related task.
+• What is a pretrained model? A model that has been previously trained on a massive dataset (instead of having random weights, its weights are already optimized to detect shapes, textures, and features)
+• What does it mean to freeze layers? It means setting the weights of specific layers to be non-trainable, so during the trainign, the optimizar don't update these weights, reducing the computacional power needed.
+• What does it mean to replace the classifier head? It means removing the final fully connected layer and adding a new one that matches the number of classes in the specific problem.
+• What is fine-tuning? After training the new classifier head, unfreeze some of the earlier layers and continue training to slightly adjust its feature extractors to better fit the specific new dataset.
+• Which approach worked best: SimpleCNN, frozen ResNet18 or fine-tuned ResNet18? Fine-tuned ResNet18.
+• What are the engineering trade-offs between accuracy, training time and model complexity? 
+	- SimpleCNN: Low complexity and fast training, but low accuracy (80%) because it lacks prior knowledge.
+	- Frozen ResNet18: High accuracy and medium complexity; it's very efficient because only a few parameters are trained.
+	- Fine-tuned ResNet18: Highest accuracy but highest training time and complexity. It requires careful tuning to avoid overfitting but offers the best reliability.
+• Would you use transfer learning in an operational Earth Observation system? Why? Yes, because satellite data is often hard to label in large quantities. Transfer learning allows to build highly accurate systems with very small datasets, so it significantly reduces the carbon footprint and time of training, and provides a more robust starting point than training from scratch.

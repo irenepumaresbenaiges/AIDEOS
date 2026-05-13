@@ -1,0 +1,14 @@
+EXPERIMENT 1
+Image: data/raw/eurosat/2750/Highway/Highway_1.jpg
+Predicted class: river
+Confidence: 0.5503
+
+EXPERIMENT 2
+Image: data/inference_samples/noise.jpg
+Predicted class: forest
+Confidence: 0.4718
+
+• Does the transfer model also force a known class prediction? Yes. 
+• Does it give high confidence on unknown input? No.
+• Is transfer learning enough to solve out-of-distribution detection? No. The model architecture still ends with a softmax layer or similar (logits) that distributes probability across the classes it was trained on, that forces the model to choose one of the categories, even if the input does not belong to any of them.
+• What additional mechanism would be needed in an operational system? It could be helpful an anomaly detection mechanism, or a rejection threshold for the confidence. Another possibility would be to train the model with a class "unknowkn" with other images.

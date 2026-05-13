@@ -1,0 +1,28 @@
+MODEL COMPARISON
+================
+
+1. SimpleCNN from scratch
+Accuracy: 0.8056
+Training time: 1.4681 seconds
+Comments: Lower performance than classical ML (Random Forest) in this small dataset. It struggles with mixed textures like rivers surrounded by forest.
+
+2. ResNet18 frozen feature extractor
+Accuracy: 0.9722
+Training time: 18.46 seconds
+Comments: Excellent performance. Reusing ImageNet features is much more effective than training a small CNN from scratch, even with the weights frozen.
+
+3. ResNet18 fine-tuned last block
+Accuracy: 1.0000
+Training time: 24.74 seconds
+Comments: Perfect classification. Allowing the last block (layer4) to adapt to satellite-specific spatial features resolved the remaining confusion in the "River" class.
+
+
+
+BEST ACCURACY:
+ResNet18 fine-tuned last block
+
+FASTEST TRAINING:
+SimpleCNN
+
+BEST ENGINEERING TRADE-OFF:
+ResNet18 frozen feature extarctor
