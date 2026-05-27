@@ -1,0 +1,12 @@
+OCCLUSION ANALYSIS
+
+==================
+Prediction: river
+Confidence: 0.7109
+
+- Do both methods highlight similar regions? Yes, but with an incredibly critical divergence. Both Grad-CAM and Occlusion Sensitivity highly emphasize the bottom shoreline area (strong red hotspots). However, Occlusion Sensitivity reveals a secondary, highly important hotspot across the top margin of the image (yellow-orange band) that Grad-CAM mostly ignored.
+- Which explanation appears more localized? Grad-CAM appears more localized because it highlights smooth, continuous, concentrated neural activation blobs. Occlusion sensitivity operates on a block-by-block patch stride, creating a coarser, grid-like map of importance across the entire image landscape.
+- Which explanation appears easier to interpret? Grad-CAM is visually easier to interpret at a quick glance due to its organic, natural overlays blending over image features. However, Occlusion Sensitivity is functionally easier to interpret from an engineering perspective because it directly correlates pixel removal to mathematical drops in confidence scores.
+- Did both methods identify the river region? No, they reacted to it differently. Grad-CAM completely ignored the central dark river water body. Occlusion Sensitivity, interestingly, exhibits a deep blue patch (negative importance/inverted sensitivity) right over the center-right section of the water body. This means that covering up the river water actually increases or stabilizes the classification confidence, proving that the model relies entirely on the surrounding shore borders to make its decision.
+- What happens for unknown inputs? For unknown inputs (such as out-of-distribution or noise samples), occlusion analysis degrades into an erratic grid of arbitrary drops. Because the model forces a prediction based on random edge fragments, covering any random grid patch can wildly fluctuate the soft-max score without tracking true physical land features.
+- Can one explanation method completely replace another? No, Grad-CAM answers a gradient-based attention question ("Where does the layer look?"), whereas Occlusion sensitivity answers a structural pertubative question ("What data is truly necessary to preserve the score?"). As seen here, relying only on Grad-CAM would have kept us completely blind to the fact that the top margin of the image was also heavily dictating the model's performance. They must be used together to validate operational reliability.

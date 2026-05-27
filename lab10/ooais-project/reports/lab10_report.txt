@@ -1,0 +1,5 @@
+LABORATORY 10
+
+STUDENT: Irene Pumares
+REPO: https://github.com/irenepumaresbenaiges/AIDEOS.git (public)
+

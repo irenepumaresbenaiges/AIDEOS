@@ -1,0 +1,51 @@
+GRAD-CAM ANALYSIS
+=================
+
+Prediction: river
+Confidence: 0.7109
+Observed attention: The model's strongest attention is concentrated in the lower-left and lower-center areas of the image. Specifically, it focuses on the shoreline transition zone where vegetation or built structures run adjacent to the water body. The main body of water (occupying most of the upper section) remains mapped in blue tones, indicating low direct activation.
+Interpretation: Although the model correctly classifies the image as a river, the visual explanation reveals an interesting underlying behavior: it is not making its decision based on the water itself, but rather on the contextual features of the shoreline. This suggests that the model has learned to associate the presence of these specific shoreline textures as the primary key feature to identify a river within this dataset.
+
+Conclusions:
+- Did the model focus on meaningful regions? Partially, yes, because riverbanks and shorelines are intrinsic, defining components of a river landscape. However, it is noteworthy that it almost completely ignores the large central mass of water, demonstrating that the model relies more heavily on surrounding context than on the primary object itself.
+- Did suspicious predictions appear? The prediction is not entirely "suspicious" since the classification is correct. However, because the confidence is moderate (0.7109) and the attention maps ignore the water body, it raises a minor red flag regarding how well this model will generalize to much wider rivers where both shorelines are not simultaneously visible within the frame.
+- Can explainability guarantee correctness? No. Explainability does not guarantee model correctness or optimal performance. Instead, its true purpose is to act as an auditing tool to help engineers detect dataset biases, unexpected shortcut learning, or flawed pattern recognition.
+- Why is XAI important in operational systems? XAI is crucial because it allows engineers to verify whether a model's choices can be safely trusted, ensuring it isn't making correct predictions based on irrelevant visual artifacts or dangerous dataset shortcuts.
+
+
+Experiment 1: Forest
+Prediction: river
+Confidence: 0.6188
+
+Observed attention: The model's attention maps display a divided, multi-focal pattern. The primary red hotspot is positioned in the upper-right quadrant, where a slight boundary texture change or shading artifact occurs in the dense canopy. Secondary warm activations (yellow/orange zones) are scattered horizontally along the lower portion of the image, running roughly in line with the faint diagonal linear path visible in the lower-left corner of the original image.
+
+Interpretation: The model has failed to recognize the dense canopy as a forest, incorrectly misclassifying it as a river. The Grad-CAM heatmap reveals why this confusion occurred: the model is relying heavily on texture anomalies and linear boundary patterns. In satellite imaging, rivers often present as dark, twisting linear structures flanked by vegetation. The model likely mistook the dark, linear path cutting through the lower-left side and the texture transitions in the upper canopy for riverbank features or water boundaries.
+
+
+Experiment 2: Residential
+Prediction: forest
+Confidence: 0.4253
+Observed attention: The model's attention is distributed across the areas containing localized green vegetation, backyard trees, or lawns scattered between the residential zones. The highly structured, high-contrast geometric edges of the actual buildings and the straight lines of paved asphalt roads are largely relegated to the blue, low-activation zones.
+Interpretation: The model failed to recognize the urban/suburban landscape, incorrectly assigning it to the forest class. The Grad-CAM heatmap exposes a clear dataset bias or feature-weighting issue: instead of analyzing the global composition of the image (which is dominated by repeating geometric house patterns and roads), the model acted as a simple "greenery detector." It focused heavily on the vegetated spaces.
+
+
+Experiment 3: Highway
+Prediction: river
+Confidence: 0.5846
+Observed attention: The model's primary attention hotspots (red and orange zones) are heavily concentrated in the lower-right quadrant, specifically tracking the sharp boundary edge where the paved highway structure interfaces with the adjacent agricultural field and small cluster of buildings. A secondary warm region (yellow/green) is visible in the top-left corner along the same linear trajectory. Interestingly, the central strip of the highway pavement itself is left largely unactivated in blue.
+Interpretation: The model was forced to predict one of its known classes (forest, residential, or river) because the true class ("Highway") was excluded from its training set. It mistakenly chose "river" with moderate confidence. The Grad-CAM heatmap reveals that the model is trying to force its learned "river template" onto the highway landscape. It does this by ignoring the actual asphalt roadway and highlighting the long, continuous linear borders running alongside it, treating these fields and line transitions as if they were riverbanks.
+
+
+Experiment 4: Noise
+Prediction: residential
+Confidence: 0.4241
+Observed attention: The Grad-CAM map shows a highly localized attention hotspot (red/orange zone) focused near the bottom-center margin of the random noise grid. A tiny, faint secondary patch of warm green/light-blue activation is visible near the top-right corner. The rest of the random image is completely cold (dark blue), showing zero neural network activation.
+Interpretation: This result highlights a profound vulnerability in deep neural network classifiers. When fed pure mathematical noise, the model still yields a "residential" prediction with 42.41% confidence. Because the noise distribution randomly generated high-contrast pixel clusters that mimic high-frequency edge textures (similar to roof corners, concrete joints, or building pixels), the deeper convolutional layers mistook this local random arrangement for structural patterns of a residential settlement.
+
+Final Conclusions:
+==================
+- Did the model focus on meaningful regions? No. Across the baseline and out-of-distribution experiments, the model repeatedly focused on localized visual shortcuts, boundary transitions, or accidental noise patterns rather than a true semantic understanding of the target landscape classes.
+- Did Grad-CAM help explain predictions? Yes, immensely. Grad-CAM exposed that the model is functioning largely as an edge, texture, and boundary detector rather than evaluating the entire composition of the scene. It revealed the exact visual features driving both true and false classifications.
+- Did unknown inputs produce suspicious behavior? Yes, absolutely. Feeding a completely unseen class (Highway) forced a confident incorrect prediction (River) by over-indexing on surrounding field borders. Even worse, feeding completely meaningless random noise still triggered a structural classification (Residential) because of local, accidental pixel arrangements.
+- Can explainability guarantee correctness? No. Explainability does not guarantee model correctness, accuracy, or safety. Instead, it serves as a critical diagnostic utility to illuminate model vulnerabilities, systemic dataset biases, and flawed feature relationships.
+- Why is XAI important in operational Earth Observation systems? In mission-critical space applications like autonomous orbital operations, environmental monitoring, or onboard emergency decision-making, blind outputs are highly dangerous. XAI is mandatory because it provides the transparency required to audit, validate, and trust the underlying mechanics of an AI system before relying on its choices.

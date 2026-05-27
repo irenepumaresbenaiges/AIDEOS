@@ -1,0 +1,28 @@
+TRANSFORMATION ANALYSIS
+=======================
+
+River without transformation
+Prediction: river
+Confidence: 0.7109
+
+River with horizontal flip
+Prediction: river
+Confidence: 0.5165
+
+River rotation by 90 degrees 
+Prediction: river
+Confidence: 0.7759
+
+River with Gaussian blur
+Prediction: river
+Confidence: 0.5827
+
+River with brightness modification
+Prediction: river
+Confidence: 0.7569
+
+- Did confidence change?  Yes, confidence fluctuated notably across all variations. While the baseline confidence was 0.7109, it dropped significantly under geometric and structural distortions, but unexpectedly increased during the 90-degree rotation (0.7759) and brightness adjustment (0.7569).
+- Did attention regions move? Yes, but they revealed a severe positional bias in the network. During the 90-degree rotation, the hotspot dynamically tracked the physical shoreline to the lower-right. However, when the image was horizontally flipped, the hotspot did not mirror over to the right side where the shoreline moved; instead, it stubbornly stayed anchored to the lower-left coordinate grid space, showing that the model over-indexes on absolute coordinate positions.
+- Which transformations had the largest impact? The horizontal flip and Gaussian blur had the most severe impacts. The horizontal flip caused a sharp 20% drop in classification confidence and broke the model's feature-tracking logic due to its strict spatial coordinate bias. The Gaussian blur degraded fine-grained textural edges, forcing the network to bloat its attention regions to grasp low-frequency shapes.
+- Which transformations had minimal impact? The brightness modification had the least destructive impact. It preserved the primary hotspot location while marginally boosting confidence, demonstrating that the convolutional kernels are highly resilient to lighting changes as long as structural high-contrast edges remain visible.
+- Does the model appear robust? Only moderately. The model is robust to illumination variations and can track vertical linear structures reasonably well when rotated. However, it completely lacks rotational/reflectional invariance when it comes to horizontal flip and is dangerously dependent on fine high-frequency edge textures (Gaussian blur). This indicates that in an operational Earth Observation system, data augmentations covering reflections and blurring artifacts are mandatory to prevent silent failures under varying atmospheric and sensor conditions.

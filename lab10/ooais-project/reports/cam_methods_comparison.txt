@@ -1,0 +1,13 @@
+CAM METHODS COMPARISON ANALYSIS
+==============================
+
+Prediction: river
+Confidence: 0.7109
+
+- Do all CAM methods highlight the same image regions? Generally, yes. All methods point to the same macro-region: the lower-left and lower-center areas corresponding to the riverbank shoreline features. However, they vary significantly in their bounds, intensity distributions, and pixel-level localization.
+- Which method produces the sharpest visualization? EigenCAM produces the sharpest, most highly localized visualization. It isolates the specific bottom shoreline contour perfectly and drops completely to a dark blue, zero-activation state for the rest of the image, filtering out almost all surrounding context.
+- Which method produces the smoothest visualization?
+  Grad-CAM and HiResCAM produce the smoothest visualizations. They exhibit soft, continuous, blob-like interpolation gradients that fade gently from the red hotspots out into the broader green and light blue contextual boundaries.
+- Which method appears easiest to interpret? HiResCAM (closely followed by Grad-CAM) appears the easiest to interpret globally. It cleanly highlights the primary structural edge responsible for the prediction while showing a smooth, intuitive transition gradient that clearly outlines what features the model accounts for without cluttering the visualization.
+- Do any methods produce suspicious or unexpected attention? No, more or les they all have sense. 
+- What does this suggest about relying on only one XAI method? This highlights that there is no single universal explanation method that is always correct. Relying on just one XAI method can be misleading; an engineer might mistake the smooth generalizations of Grad-CAM for complete model confidence, for example. Utilizing multiple CAM variants simultaneously provides a robust, cross-validated understanding of what neural networks actually see.

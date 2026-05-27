@@ -1,0 +1,37 @@
+CLASS ATTENTION CONSISTENCY
+===========================
+
+Forest 1
+Prediction: river
+Confidence: 0.5035
+Forest 2
+Prediction: forest
+Confidence: 0.5076
+Forest 3
+Prediction: river
+Confidence: 0.6172
+
+River 1
+Prediction: river
+Confidence: 0.8239
+River 2
+Prediction: river
+Confidence: 0.8334
+River 3
+Prediction: river
+Confidence: 0.6264
+
+Residential 1
+Prediction: river
+Confidence: 0.8270
+Residential 2
+Prediction: river
+Confidence: 0.4340
+Residential 3
+Prediction: river
+Confidence: 0.6485
+
+- Does the model consistently focus on similar regions? Yes, a severe spatial bias is present. Across almost all tested images, regardless of the actual semantic content or land cover class, the model consistently positions its strongest attention hotspots along the peripheral margins, corner regions, and lower edges of the image frames.
+- Does attention vary significantly? The global localization behavior does not vary significantly, it remains anchored to boundaries, edges, and margins. However, the internal distribution profiles do shift. For successful predictions (like the River images), attention binds tightly to physical shore boundaries, whereas confused classes present split or scattered attention patterns.
+- Which class produces the most stable attention patterns? The River class produces the most stable and physically logical attention patterns. Even though it relies strictly on the banks rather than the water, it repeatedly aligns its focus with the highest-contrast transition zones (land-water or vegetation-water boundaries) with higher confidence scores (frequently above 80%).
+- Which class appears more difficult? Residential is uniquely difficult and completely broken for this model, alongside Forest. The model systematically misclassifies every single Residential sample as a "river". Because the residential areas contain high-frequency grid layouts, streets, and varying rooftop structures, the model's feature maps mistake long road corridors and urban-rural interfaces for riverbank transitions.

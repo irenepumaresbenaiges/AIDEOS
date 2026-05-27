@@ -1,0 +1,30 @@
+FINAL ENGINEERING DECISION REPORT
+
+Selected Model: ResNet18 with fine-tuning (last block).
+
+1. Technical Justification
+Based on the comparative analysis, the fine-tened ResNet18 is the BEST choice. While the SimpleCNN from scratch only achieved ~80% accuracy and the frozen ResNet18 reached 97.22%, the fine-tuned version achieved a score of 100% accuracy. By allowing the weights of layer4 to adapt, the model successfully learned specific satellite spatial features that the generic ImageNet weights could not fully capture.
+
+2. Expected Advantages
+- Maximum Reliability: The model demonstrated perfect class separation in the confusion matrix.
+- Feature Adaptation: Unlike the frozen model, fine-tuning allows the high-level filters to specialize in orbital perspectives.
+- Transfer of Knowledge: It leverages millions of images from ImageNet, requiring just a few hundreds of local images to reach good performance.
+- Stable Convergence: As seen in the training logs, the loss decreases consistently, ensuring a predictable training process.
+
+3. Possible Risks
+- Overfitting: With such a small dataset, there is a risk that the model learns the specific noise of these images.
+- Computational Cost: Training time increased by ~35% compared to the frozen model (from 18s to 24s). Here the difference is negligible, but it could increase with larger datasets.
+- Unknown: The model still forces unknown inputs  into known classes with high confidence, requiring an external rejection threshold.
+
+4. Deployment Considerations
+- The deployment environment must include an exact replica of the ImageNet normalization and 224x224 resizing; otherwise, accuracy will degrade significantly.
+- Implement a "Confidence Threshold" (e.g., 0.90). If a prediction falls below this, it should be flagged for human review to mitigate the risk of misclassifying unknown land covers.
+
+Engineering Questions
+- Classification Accuracy: Fine-tuned ResNet18 (1.00) > Frozen ResNet18 (0.97) > SimpleCNN (0.80).
+- Training Time: Although slower than SimpleCNN, the 24-second training time is extremely efficient for the accuracy gained.
+- Implementation Complexity: Low. Using torchvision.models makes it easier to maintain than a custom CNN architecture.
+- Risk of overfitting: With small datasets.
+- Robustness on unknown inputs: It is possible to solve this by implementing a confidence threshold. 
+- Suitability for Small Datasets: Excellent. Transfer learning is the only viable strategy when only a few hundred images are available per class.
+- Operational Reliability: High. Grad-CAM visualizations confirm the model focuses on relevant land-cover patterns and not on background noise.

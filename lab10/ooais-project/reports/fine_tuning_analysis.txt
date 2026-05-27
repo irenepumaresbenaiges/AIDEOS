@@ -1,0 +1,10 @@
+FINE TUNING ANALYSIS
+
+• Did fine-tuning improve accuracy? Yes
+• Did training become slower? Yes
+• Did the confusion matrix change? Yes, just one prediction.
+• Did any class improve more than others? River, the others where already perfect predictions.
+• Did any class become worse? No
+• Is fine-tuning worth the additional computational cost? Yes
+• Would you use the frozen model or the fine-tuned model in a small-data satellite classification problem? I would choose the fine-tuned model. Even though the frozen model is faster to train and computationally cheaper, the fine-tuning approach demonstrated a clear improvement in accuracy. Since the dataset is small, the extra training time is still relatively short, making the trade-off for higher reliability and better class separation highly beneficial.
+
